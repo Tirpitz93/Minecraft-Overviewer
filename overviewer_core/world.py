@@ -25,6 +25,7 @@ import locale
 import numpy
 
 from . import nbt
+from . import texturegen
 from . import cache
 from .biome import reshape_biome_data
 
@@ -905,7 +906,15 @@ class RegionSet(object):
         prismarine_slabs = ('minecraft:prismarine_slab','minecraft:dark_prismarine_slab','minecraft:prismarine_brick_slab')
 
         key = palette_entry['Name']
-        (block, data) = self._blockmap[key]
+
+        # Try finding the block using auto-texture-generation. If not found use the previous method
+        _auto_blockid, _auto_data = texturegen.BlockRenderer.get_nbt_as_int(key, palette_entry.get('Properties'))
+        if _auto_data is not None:
+            data = _auto_data
+            block = _auto_blockid
+        else:
+            (block, data) = self._blockmap[key]
+
         if key in ['minecraft:redstone_ore', 'minecraft:redstone_lamp']:
             if palette_entry['Properties']['lit'] == 'true':
                 block += 1
@@ -1144,6 +1153,12 @@ class RegionSet(object):
                 data = 0
         elif key == "minecraft:composter":
             data = palette_entry['Properties']['level']
+
+        # To ensure the auto-generated textures is used (while testing at least)
+        if _auto_blockid is not None:
+            block = _auto_blockid
+            data = _auto_data
+
         return (block, data)
 
     def get_type(self):

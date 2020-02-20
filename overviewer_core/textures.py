@@ -12,7 +12,6 @@
 #
 #    You should have received a copy of the GNU General Public License along
 #    with the Overviewer.  If not, see <http://www.gnu.org/licenses/>.
-
 from collections import OrderedDict
 import sys
 import imp
@@ -27,7 +26,7 @@ from PIL import Image, ImageEnhance, ImageOps, ImageDraw
 import logging
 import functools
 
-from . import util
+from . import util, texturegen
 
 
 # global variables to collate information in @material decorators
@@ -134,12 +133,24 @@ class Textures(object):
         # generate the blocks
         global blockmap_generators
         global known_blocks, used_datas
+        global max_blockid, max_data
+
+        # Get the maximum possible size when using automatic generation
+        block_renderer = texturegen.BlockRenderer(self, start_block_id=22000)
+        auto_max_block_size, auto_max_data_size = block_renderer.get_max_size()
+        max_blockid = max(max_blockid, auto_max_block_size)
+        max_data = max(max_data, auto_max_data_size)
+
+        # Create Image Array
         self.blockmap = [None] * max_blockid * max_data
-        
+
         for (blockid, data), texgen in list(blockmap_generators.items()):
             tex = texgen(self, blockid, data)
             self.blockmap[blockid * max_data + data] = self.generate_texture_tuple(tex)
-        
+
+        for (blockid, data), img in list(block_renderer.iter_for_generate()):
+            self.blockmap[blockid * max_data + data] = self.generate_texture_tuple(img)
+
         if self.texture_size != 24:
             # rescale biome grass
             self.biome_grass_texture = self.biome_grass_texture.resize(self.texture_dimensions, Image.ANTIALIAS)
@@ -813,7 +824,6 @@ class Textures(object):
 ## The other big one: @material and associated framework
 ##
 
-
 # the material registration decorator
 def material(blockid=[], data=[0], **kwargs):
     # mapping from property name to the set to store them in
@@ -903,6 +913,7 @@ def billboard(blockid=[], imagename=None, **kwargs):
     def inner_billboard(self, unused_id, unused_data):
         return self.build_billboard(self.load_image_texture(imagename))
     return inner_billboard
+
 
 ##
 ## and finally: actual texture definitions
