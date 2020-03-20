@@ -5194,7 +5194,7 @@ def glazed_terracotta(self, blockid, data):
     
 # dried kelp block
 @material(blockid=11331, data=[0], solid=True)
-def sandstone(self, blockid, data):
+def driedkelp(self, blockid, data):
     top = self.load_image_texture("assets/minecraft/textures/block/dried_kelp_top.png")
     return self.build_block(top, self.load_image_texture("assets/minecraft/textures/block/dried_kelp_side.png"))
 
