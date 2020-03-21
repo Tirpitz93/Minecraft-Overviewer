@@ -5151,10 +5151,13 @@ def glazed_terracotta(self, blockid, data):
         # choose orientation and paste textures
         if glazed_terracotta_orientation == 0: # south / Player was facing North
             return self.build_block(texture, texture)
+
         elif glazed_terracotta_orientation == 1: # west / Player was facing east
             return self.build_full_block(texture.rotate(270), None, None, texture.rotate(90), texture.rotate(270))
+
         elif glazed_terracotta_orientation == 2: # North / Player was facing South
             return self.build_full_block(texture.rotate(180), None, None, texture.rotate(180), texture.rotate(180))
+
         elif glazed_terracotta_orientation == 3: # east / Player was facing west
             return self.build_full_block(texture.rotate(90), None, None, texture.rotate(270), texture.rotate(90))
 
