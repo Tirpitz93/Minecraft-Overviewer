@@ -34,11 +34,11 @@ blockmap_generators = {}
 
 known_blocks = set()
 used_datas = set()
-max_blockid = 0
+max_blockid = 23000
 max_data = 0
 
 transparent_blocks = set()
-solid_blocks = set()
+solid_blocks = set([22000])
 fluid_blocks = set()
 nospawn_blocks = set()
 nodata_blocks = set()
