@@ -1069,14 +1069,6 @@ def lava(self, blockid, data):
     lavatex = self.load_lava()
     return self.build_block(lavatex, lavatex)
 
-# sand
-@material(blockid=12, data=list(range(2)), solid=True)
-def sand_blocks(self, blockid, data):
-    if data == 0: # normal
-        img = self.build_block(self.load_image_texture("assets/minecraft/textures/block/sand.png"), self.load_image_texture("assets/minecraft/textures/block/sand.png"))
-    if data == 1: # red
-        img = self.build_block(self.load_image_texture("assets/minecraft/textures/block/red_sand.png"), self.load_image_texture("assets/minecraft/textures/block/red_sand.png"))
-    return img
 
 # gravel
 block(blockid=13, top_image="assets/minecraft/textures/block/gravel.png")
