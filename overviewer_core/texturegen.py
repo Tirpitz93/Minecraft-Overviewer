@@ -7,6 +7,7 @@ from PIL import Image
 
 START_BLOCK_ID = 20000
 BLOCK_LIST = [
+    "dirt",
     "cyan_stained_glass",
     "gray_concrete_powder",
     "red_terracotta",
@@ -210,7 +211,7 @@ BLOCK_LIST = [
     "green_stained_glass",
     "polished_granite",
     "dead_horn_coral_block",
-    "dirt",
+
     "stripped_birch_wood",
     "bee_nest",
     "brown_stained_glass",
@@ -322,6 +323,9 @@ class BlockRenderer:
 
     def load_model(self, name: str) -> dict:
         return self.load_json(name, self.MODELS_DIR)
+    # def load_block_names(self):
+    #     _dynBlockList = set()
+    #     for file in
 
     ################################################################
     # Model file parsing

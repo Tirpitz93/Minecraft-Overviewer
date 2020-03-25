@@ -508,7 +508,7 @@ class RegionSet(object):
             'minecraft:end_stone': (121, 0),
             'minecraft:dragon_egg': (122, 0),
             'minecraft:redstone_lamp': (123, 0),
-            'minecraft:oak_slab': (126, 0),
+            'minecraft:oa7ak_slab': (126, 0),
             'minecraft:spruce_slab': (126, 1),
             'minecraft:birch_slab': (126, 2),
             'minecraft:jungle_slab': (126, 3),
