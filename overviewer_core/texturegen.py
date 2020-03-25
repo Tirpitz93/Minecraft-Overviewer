@@ -310,7 +310,7 @@ class BlockRenderer:
     # Loading files
     ################################################################
     def load_json(self, name: str, directory: str) -> dict:
-        fp = self.textures.find_file(os.path.join(directory, "%s.json" % name), "r")
+        fp = self.textures.find_file("%s/%s.json" % (directory, name), "r")
         try:
             data = json.load(fp)
         finally:
@@ -373,7 +373,7 @@ class BlockRenderer:
             # Get the Texture (in case no variable is use
             texture_name = textures[definition["texture"][1:]]
 
-            texture = self.textures.load_image_texture(os.path.join(self.TEXTURES_DIR, "%s.png" % texture_name))
+            texture = self.textures.load_image_texture("%s/%s.png" % (self.TEXTURES_DIR, texture_name))
             # texture = test_texture
             # Apply rotation
             if "rotation" in definition:
