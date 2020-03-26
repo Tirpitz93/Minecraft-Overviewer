@@ -303,10 +303,10 @@ class BlockRenderer(object):
     TEXTURES_DIR = "assets/minecraft/textures"
     data_map = defaultdict(list)
 
-    def __init__(self, textures, *, block_list=None, start_block_id=1):
+    def __init__(self, textures, *, block_list=BLOCK_LIST, start_block_id=1):
         self.textures = textures
         self.start_block_id = start_block_id
-        self.block_list = BLOCK_LIST if block_list is None else block_list
+        self.block_list = block_list
 
     ################################################################
     # Loading files
@@ -568,7 +568,8 @@ class BlockRenderer(object):
         # TODO: This method is currently NOT working because os.walk can't be used inside a jar file
         return self.iter_blocks([
             fn.split('.', 1)[0]
-            for _, _, files in os.walk(self.BLOCKSTATES_DIR)
+            for _, _, files in os.walk("C:/Users/***/AppData/Roaming/.minecraft/versions/20w12a/20w12a/assets"
+                                       "/minecraft/blockstates")
             for fn in files
             if fn.split('.', 1)[1] == "json"
         ], ignore_unsupported_blocks=ignore_unsupported_blocks)
@@ -579,7 +580,7 @@ class BlockRenderer(object):
         return blockid_count + self.start_block_id, data_count
 
     def iter_for_generate(self):
-        for block_index, block_name, nbt_index, nbt_condition, variants in self.iter_blocks(self.block_list):
+        for block_index, block_name, nbt_index, nbt_condition, variants in self.iter_all_blocks():
             if len(variants) >= 1:
                 #print("B:", block_name, block_index + self.start_block_id, nbt_index, nbt_condition)
                 BlockRenderer.store_nbt_as_int(block_name, nbt_condition, block_index + self.start_block_id, nbt_index)
