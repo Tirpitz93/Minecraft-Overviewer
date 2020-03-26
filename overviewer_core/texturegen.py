@@ -2,11 +2,11 @@ import os
 import json
 from collections import defaultdict
 from functools import lru_cache
-from io import BytesIO
 
 from PIL import Image
 import logging
 
+logger = logging.getLogger(__name__)
 START_BLOCK_ID = 20000
 BLOCK_LIST = [
     "dirt",
@@ -292,7 +292,7 @@ def flip(image, arg1):
         return image.transpose(arg1)
     else:
         return None
-logger = logging.getLogger(__name__)
+
 
 ################################################################
 # Main Code for Block Rendering
@@ -311,42 +311,26 @@ class BlockRenderer(object):
     ################################################################
     # Loading files
     ################################################################
+    def load_file(self, path:str, name:str, ext:str):
+        if ":" in name:
+            return self.textures.find_file("{0}/{1}{2}".format(path,name.split(":")[1],ext))
+        else:
+            return self.textures.find_file("{0}/{1}{2}".format(path,name,ext))
+
     def load_json(self, name: str, directory: str) -> dict:
-        # fp = self.textures.find_file("%s/%s.json" % (directory, name), "r")
-        logger.debug(directory)
-        logger.debug(name)
-        # with...
         with self.load_file(directory, name, ".json") as f:
             return json.load(f)
-        # finally:
-        #     fp.close()
-        # return data
 
     def load_blockstates(self, name: str) -> dict:
         return self.load_json(name, self.BLOCKSTATES_DIR)
 
-    def load_file(self, path:str, name:str, ext:str):
-        if ":" in name:
-            return self.textures.find_file("{0}/{1}{2}".format(path,name.split(":")[1],ext))
-
-        else:
-            return self.textures.find_file("{0}/{1}{2}".format(path,name,ext))
-
-
-
-            
-
-
-
     def load_model(self, name: str) -> dict:
-        logger.debug(name)
         return self.load_json(name, self.MODELS_DIR)
-        # if ":" in name:
-        #     return self.load_json(name[name.find(":")+1:], self.MODELS_DIR)
-        # else:
-        #     return self.load_json(name, self.MODELS_DIR)
 
-
+    @lru_cache
+    def load_img(self, texture_name):
+        with self.load_file(self.TEXTURES_DIR, texture_name, ".png") as f:
+            return Image.open(f).convert("RGBA")
 
     ################################################################
     # Model file parsing
@@ -384,13 +368,6 @@ class BlockRenderer(object):
     ################################################################
     # Render methods
     ################################################################
-    @lru_cache
-    def load_img(self, texture_name):
-        with self.load_file(self.TEXTURES_DIR, texture_name, ".png") as f:
-            buffer =  Image.open(f)
-            # buffer = BytesIO(fileobj.read())
-            texture = buffer.convert("RGBA")
-            return texture
     def render_single_cube(self, part, textures, rotation_x_axis, rotation_y_axis):
         """
         Limitations:
@@ -565,11 +542,12 @@ class BlockRenderer(object):
                     raise e
 
     def iter_all_blocks(self, ignore_unsupported_blocks=True):
-        # TODO: This method is currently NOT working because os.walk can't be used inside a jar file
+        # TODO: Getting the find_file_local_path from textures is cheating and only works if the jar file is extracted
+        blockstates_dir = self.textures.find_file_local_path + "/assets/minecraft/blockstates"
+        logger.debug("Searching for blockstates in " + blockstates_dir)
         return self.iter_blocks([
             fn.split('.', 1)[0]
-            for _, _, files in os.walk("C:/Users/***/AppData/Roaming/.minecraft/versions/20w12a/20w12a/assets"
-                                       "/minecraft/blockstates")
+            for _, _, files in os.walk(blockstates_dir)
             for fn in files
             if fn.split('.', 1)[1] == "json"
         ], ignore_unsupported_blocks=ignore_unsupported_blocks)
@@ -582,6 +560,6 @@ class BlockRenderer(object):
     def iter_for_generate(self):
         for block_index, block_name, nbt_index, nbt_condition, variants in self.iter_all_blocks():
             if len(variants) >= 1:
-                #print("B:", block_name, block_index + self.start_block_id, nbt_index, nbt_condition)
+                logger.debug("Block found: {0} -> {1}:{2}".format(block_name, block_index, nbt_index))
                 BlockRenderer.store_nbt_as_int(block_name, nbt_condition, block_index + self.start_block_id, nbt_index)
                 yield (block_index + self.start_block_id, nbt_index), variants[0][0]
