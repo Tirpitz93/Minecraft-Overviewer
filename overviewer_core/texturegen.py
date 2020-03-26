@@ -2,6 +2,9 @@ import os
 import json
 from collections import defaultdict
 from functools import lru_cache
+import moderngl as mgl
+import numpy as np
+from math import sin, cos, tan, asin, pi
 
 from PIL import Image
 import logging
@@ -298,15 +301,116 @@ def flip(image, arg1):
 # Main Code for Block Rendering
 ################################################################
 class BlockRenderer(object):
+    # Paths in the jar file
     BLOCKSTATES_DIR = "assets/minecraft/blockstates"
     MODELS_DIR = "assets/minecraft/models"
     TEXTURES_DIR = "assets/minecraft/textures"
+
+    # Storage for finding the data value
     data_map = defaultdict(list)
 
-    def __init__(self, textures, *, block_list=BLOCK_LIST, start_block_id=1):
+    # Model of a cube
+    cube_vertices = np.array([
+        # x  y   z
+        -1, -1, -1,  #
+        -1, -1, 1,  #
+        -1, 1, -1,  #
+        -1, 1, 1,  #
+        1, -1, -1,  #
+        1, -1, 1,  #
+        1, 1, -1,  #
+        1, 1, 1  #
+    ], dtype="f4")
+    cube_indecies = np.array([
+        0, 2, 1,  # West
+        1, 2, 3,  # West
+        4, 6, 5,  # East
+        5, 6, 7,  # East
+        0, 4, 1,  # Bottom
+        1, 4, 5,  # Bottom
+        2, 6, 3,  # Top
+        3, 6, 7,  # Top
+        0, 4, 2,  # South
+        2, 4, 6,  # South
+        1, 5, 3,  # North
+        3, 5, 7  # North
+    ], dtype="i4")
+
+    def __init__(self, textures, *, block_list=BLOCK_LIST, start_block_id: int=1, resolution: int=24,
+                 vertex_shader: str="overviewer_core/rendering/default.vert",
+                 fragment_shader: str="overviewer_core/rendering/default.frag",
+                 projection_matrix=None):
+        # Not direclty related to rendering
         self.textures = textures
         self.start_block_id = start_block_id
         self.block_list = block_list
+
+        # Settings for rendering
+        self.resolution = resolution
+
+        # Configure rendering
+        self.ctx, self.fbo, self.cube_model = self.setup_rendering(vertex_shader, fragment_shader, projection_matrix)
+
+    def setup_rendering(self, vertex_shader, fragment_shader, projection_matrix=None):
+        # Read shader source-code
+        with open(vertex_shader) as fp:
+            vertex_shader_src = fp.read()
+        with open(fragment_shader) as fp:
+            fragment_shader_src = fp.read()
+
+        # Setup for rendering
+        ctx = mgl.create_context(
+            standalone=True,
+            backend='egl',
+            libgl='libGL.so.1',
+            libegl='libEGL.so.1',
+        )
+        ctx.enable(mgl.DEPTH_TEST | mgl.CULL_FACE)
+        fbo = ctx.simple_framebuffer((self.resolution, self.resolution), components=4)
+        fbo.use()
+        render_program = ctx.program(vertex_shader=vertex_shader_src, fragment_shader=fragment_shader_src)
+        cube_vbo = ctx.buffer(self.cube_vertices.tobytes())
+        cube_ibo = ctx.buffer(self.cube_indecies.tobytes())
+        cube_vbo = ctx.vertex_array(render_program, [(cube_vbo, "3f", "in_vert")], cube_ibo)
+
+        if projection_matrix is None:
+            projection_matrix = self.calculate_projection_matrix()
+        render_program["Mvp"].write(projection_matrix.astype('f4').tobytes())
+
+        return ctx, fbo, cube_vbo
+
+    def calculate_projection_matrix(self):
+        # These values were found by trying out until a 5120x5120 image was correct
+        scale_mat = np.array([
+            [.707, 0, 0, 0],
+            [0, .6124, 0, 0],
+            [0, 0, .5, 0],
+            [0, 0, 0, 1]
+        ])
+        # Rotation matricies from Wikipedia: https://en.wikipedia.org/wiki/Rotation_matrix
+        # Alpha values from Wikipedia: https://en.wikipedia.org/wiki/Isometric_projection#Mathematics
+        alpha = asin(tan(pi / 6))
+        s = sin(alpha)
+        c = cos(alpha)
+        rot_x = np.array([
+            [1, 0, 0, 0],
+            [0, c, -s, 0],
+            [0, s, c, 0],
+            [0, 0, 0, 1]
+        ])
+
+        alpha = pi / 4
+        s = sin(alpha)
+        c = cos(alpha)
+        rot_y = np.array([
+            [c, 0, s, 0],
+            [0, 1, 0, 0],
+            [-s, 0, c, 0],
+            [0, 0, 0, 1]
+        ])
+
+        # roty*rotx is the normal isometric view, the scale makes it fit into a square after applying the isometric view
+        return np.matmul(np.matmul(rot_y, rot_x), scale_mat)
 
     ################################################################
     # Loading files
@@ -327,7 +431,7 @@ class BlockRenderer(object):
     def load_model(self, name: str) -> dict:
         return self.load_json(name, self.MODELS_DIR)
 
-    @lru_cache
+    @lru_cache()
     def load_img(self, texture_name):
         with self.load_file(self.TEXTURES_DIR, texture_name, ".png") as f:
             return Image.open(f).convert("RGBA")
@@ -369,6 +473,14 @@ class BlockRenderer(object):
     # Render methods
     ################################################################
     def render_single_cube(self, part, textures, rotation_x_axis, rotation_y_axis):
+
+        self.ctx.clear()
+        self.cube_model.render(mgl.TRIANGLES)
+        return Image.frombytes("RGBA", (self.resolution, self.resolution), self.fbo.read(components=4))
+
+
+        # return Image.new("RGBA", (24, 24))
+
         """
         Limitations:
         - Only full blocks
