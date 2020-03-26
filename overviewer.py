@@ -43,7 +43,7 @@ from overviewer_core import config_parser, tileset, assetmanager, dispatcher
 from overviewer_core import cache
 from overviewer_core import observer
 from overviewer_core.nbt import CorruptNBTError
-
+from overviewer_core import gen_tileset
 helptext = """
 %(prog)s [--rendermodes=...] [options] <World> <Output Dir>
 %(prog)s --config=<config file> [options]"""
@@ -133,11 +133,14 @@ def main():
     parser.add_argument("--simple-output", dest="simple", action="store_true", default=False,
                         help="Use a simple output format, with no colors or progress bars.")
 
+
+    parser.add_argument("-g", "--generate-tileset", dest='gen_tile_set', action="store_true",
+                        help="Generate debug image with all blocks. Stored in outputdir so this must be specified")
     # create a group for "plugin exes"
     # (the concept of a plugin exe is only loosely defined at this point)
     exegroup = parser.add_argument_group("Other Scripts", "These scripts may accept different "
                                          "arguments than the ones listed above.")
-    exegroup.add_argument("--genpoi", dest="genpoi", action="store_true",
+    exegroup.add_argument( "--genpoi", dest="genpoi", action="store_true",
                           help="Run the genPOI script.")
     exegroup.add_argument("--skip-scan", dest="skipscan", action="store_true",
                           help="When running GenPOI, don't scan for entities.")
@@ -435,7 +438,10 @@ def main():
         except OSError:
             logging.exception("Could not create the output directory.")
             return 1
-
+    if args.gen_tile_set:
+        logging.info("Generationg Tileset")
+        gen_tileset.gen_tileset(destdir)
+        exit()
     ########################################################################
     # Now we start the actual processing, now that all the configuration has
     # been gathered and validated
