@@ -130,12 +130,15 @@ def main():
                         help="Print less output. You can specify this option multiple times.")
     parser.add_argument("-v", "--verbose", dest="verbose", action="count", default=0,
                         help="Print more output. You can specify this option multiple times.")
+
     parser.add_argument("--simple-output", dest="simple", action="store_true", default=False,
                         help="Use a simple output format, with no colors or progress bars.")
 
 
-    parser.add_argument("-g", "--generate-tileset", dest='gen_tile_set', action="store_true",
-                        help="Generate debug image with all blocks. Stored in outputdir so this must be specified")
+    parser.add_argument("-g", "--generate-tileset", dest='gen_tile_set',nargs="?",
+                        help="Generate debug image with all blocks from given path (directory or jar). Stored in "
+                             "outputdir so "
+                             "this must be specified")
     # create a group for "plugin exes"
     # (the concept of a plugin exe is only loosely defined at this point)
     exegroup = parser.add_argument_group("Other Scripts", "These scripts may accept different "
@@ -440,7 +443,7 @@ def main():
             return 1
     if args.gen_tile_set:
         logging.info("Generationg Tileset")
-        gen_tileset.gen_tileset(destdir)
+        gen_tileset.gen_tileset(destdir, args.gen_tile_set)
         exit()
     ########################################################################
     # Now we start the actual processing, now that all the configuration has
