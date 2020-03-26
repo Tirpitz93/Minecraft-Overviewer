@@ -430,6 +430,9 @@ class BlockRenderer(object):
         with self.load_file(self.TEXTURES_DIR, texture_name, ".png") as f:
             buffer =  Image.open(f)
             # buffer = BytesIO(fileobj.read())
+            h, w =buffer.size #get images size
+            if h != w:# check image is square if not (for example due to animated texture) crop shorter side
+                buffer = buffer.crop((0,0,min(h,w),min(h,w)))
             texture = buffer.convert("RGBA")
             return texture
     def render_single_cube(self, part, textures, rotation_x_axis, rotation_y_axis):
