@@ -1,9 +1,11 @@
 import os
 import json
 from collections import defaultdict
+from functools import lru_cache
+from io import BytesIO
 
 from PIL import Image
-
+import logging
 
 START_BLOCK_ID = 20000
 BLOCK_LIST = [
@@ -290,12 +292,12 @@ def flip(image, arg1):
         return image.transpose(arg1)
     else:
         return None
-
+logger = logging.getLogger(__name__)
 
 ################################################################
 # Main Code for Block Rendering
 ################################################################
-class BlockRenderer:
+class BlockRenderer(object):
     BLOCKSTATES_DIR = "assets/minecraft/blockstates"
     MODELS_DIR = "assets/minecraft/models"
     TEXTURES_DIR = "assets/minecraft/textures"
@@ -310,18 +312,41 @@ class BlockRenderer:
     # Loading files
     ################################################################
     def load_json(self, name: str, directory: str) -> dict:
-        fp = self.textures.find_file("%s/%s.json" % (directory, name), "r")
-        try:
-            data = json.load(fp)
-        finally:
-            fp.close()
-        return data
+        # fp = self.textures.find_file("%s/%s.json" % (directory, name), "r")
+        logger.debug(directory)
+        logger.debug(name)
+        # with...
+        with self.load_file(directory, name, ".json") as f:
+            return json.load(f)
+        # finally:
+        #     fp.close()
+        # return data
 
     def load_blockstates(self, name: str) -> dict:
         return self.load_json(name, self.BLOCKSTATES_DIR)
 
+    def load_file(self, path:str, name:str, ext:str):
+        if ":" in name:
+            return self.textures.find_file("{0}/{1}{2}".format(path,name.split(":")[1],ext))
+
+        else:
+            return self.textures.find_file("{0}/{1}{2}".format(path,name,ext))
+
+
+
+            
+
+
+
     def load_model(self, name: str) -> dict:
+        logger.debug(name)
         return self.load_json(name, self.MODELS_DIR)
+        # if ":" in name:
+        #     return self.load_json(name[name.find(":")+1:], self.MODELS_DIR)
+        # else:
+        #     return self.load_json(name, self.MODELS_DIR)
+
+
 
     ################################################################
     # Model file parsing
@@ -359,6 +384,13 @@ class BlockRenderer:
     ################################################################
     # Render methods
     ################################################################
+    @lru_cache
+    def load_img(self, texture_name):
+        with self.load_file(self.TEXTURES_DIR, texture_name, ".png") as f:
+            buffer =  Image.open(f)
+            # buffer = BytesIO(fileobj.read())
+            texture = buffer.convert("RGBA")
+            return texture
     def render_single_cube(self, part, textures, rotation_x_axis, rotation_y_axis):
         """
         Limitations:
@@ -373,9 +405,9 @@ class BlockRenderer:
             # Get the Texture (in case no variable is use
             texture_name = textures[definition["texture"][1:]]
 
-            texture = self.textures.load_image_texture("%s/%s.png" % (self.TEXTURES_DIR, texture_name))
-            # texture = test_texture
-            # Apply rotation
+
+            texture = self.load_img(texture_name)
+
             if "rotation" in definition:
                 texture = texture.rotate(-definition["rotation"])
             s[face_name] = texture
