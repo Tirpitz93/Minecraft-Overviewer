@@ -27,7 +27,8 @@ import logging
 import functools
 
 from . import util, texturegen
-
+import logging
+logger = logging.getLogger()
 
 # global variables to collate information in @material decorators
 blockmap_generators = {}
@@ -287,6 +288,7 @@ class Textures(object):
 
             # Allow two component names such as "1.8" and three component names
             # such as "1.8.1"
+
             if version.count(".") not in (1,2):
                 continue
             try:
@@ -298,6 +300,7 @@ class Textures(object):
                 continue
 
             available_versions.append(versionparts)
+        logger.debug(available_versions)
 
         available_versions.sort(reverse=True)
         if not available_versions:
