@@ -523,79 +523,6 @@ class BlockRenderer(object):
     ################################################################
     # Render methods
     ################################################################
-    def render_single_cube(self, part, textures, rotation_x_axis, rotation_y_axis):
-        # Clear the renderbuffer to start a new image
-        self.ctx.clear()
-        # Render a single cube
-        self.cube_model.render(mgl.TRIANGLES)
-        # Read the data from the framebuffer and return it as a PIL.Image
-        return Image.frombytes("RGBA", (self.resolution, self.resolution), self.fbo.read(components=4))
-
-        """
-        Limitations:
-        - Only full blocks
-        - Rotation is not supported
-        - UV coordinates must be [0, 0, 16, 16] (can be implemented bt isn't yet) \
-        - tintcolor
-        """
-        s = defaultdict(lambda: None)
-        for face_name, definition in part["faces"].items():
-            # uv, texture, cullface, rotation, tintindex
-            # Get the Texture (in case no variable is use
-            texture_name = textures[definition["texture"][1:]]
-
-
-            texture = self.load_img(texture_name)
-
-            if "rotation" in definition:
-                texture = texture.rotate(-definition["rotation"])
-            s[face_name] = texture
-
-        # Test for applying the correct top side for observers
-        # s[U] = flip(s[U], Image.FLIP_TOP_BOTTOM)
-
-        # Fix rotation of the bottom texture (see Assumption)
-        s[D] = rot(s[D], 180)
-
-        # TODO: Optimize by only rotating textures if needed (store rotation and apply it later)
-
-        # Apply Rotation in X axis by swapping and optionally rotating the textures
-        if rotation_x_axis == 90:
-            # Identified using the Observer
-            s[N], s[S], s[U], s[D] = rot(s[U], 180), rot(s[D], 180), rot(s[S], 180), s[N]
-        elif rotation_x_axis == 180:
-            # Identifies using the Barrel Block
-            s[N], s[S], s[U], s[D] = rot(s[S], 180), rot(s[N], 180), rot(s[D], 180), rot(s[U], 180)
-        elif rotation_x_axis == 270:
-            # Identified using the Observer
-            s[N], s[S], s[U], s[D] = s[D], s[U], s[N], rot(s[S], 180)
-        s[E] = rot(s[E], -rotation_x_axis)  # Identified using the Observer
-        s[W] = rot(s[W], rotation_x_axis)  # Identified using the Observer
-
-        # Apply Rotation in Y axis by swapping and optionally rotating the textures
-        if rotation_y_axis == 90:
-            # Identified using the Observer
-            s[N], s[E], s[S], s[W] = s[W], s[N], s[E], s[S]
-        elif rotation_y_axis == 180:
-            # Identified using the Observer
-            s[N], s[E], s[S], s[W] = s[S], s[W], s[N], s[E]
-        elif rotation_y_axis == 270:
-            # Identified using the Observer
-            s[N], s[E], s[S], s[W] = s[E], s[S], s[W], s[N]
-        s[U] = rot(s[U], -rotation_y_axis)  # Identified using the Observer
-        s[D] = rot(s[D], rotation_y_axis)  # Identified using the Observe
-
-        # Rotation and Flipping identified by passing one side to the function
-        # with an easily identifiable texture
-        return self.textures.build_full_block(
-            s.get("up"),
-            s.get("north"),
-            flip(s.get("east"), Image.FLIP_LEFT_RIGHT),
-            s.get("west"),
-            flip(s.get("south"), Image.FLIP_LEFT_RIGHT),
-            flip(s.get("down"), Image.FLIP_LEFT_RIGHT)
-        )
-
     def render_model(self, data: dict, rotation_x_axis, rotation_y_axis, uvlock):
         """
         This method is currently only using existing draw methods. Because of that only full size blocks can be created.
@@ -615,6 +542,7 @@ class BlockRenderer(object):
         if data["elements"] is None or len(data["elements"]) == 0:
             raise NotImplementedError("Only blocks with 'elements' are supported.")
 
+        # Check if the blocks is currently supported
         for part in data["elements"]:
             if part["from"] != [0, 0, 0] or part["to"] != [16, 16, 16]:
                 raise NotImplementedError("Partial Blocks are not supported")
@@ -625,19 +553,17 @@ class BlockRenderer(object):
                 if "uv" in definition and definition["uv"] != [0, 0, 16, 16]:
                     raise NotImplementedError("Only elements with UV [0, 0, 16, 16] are supported")
 
-        if len(data["elements"]) != 1:
-            raise NotImplementedError("Blocks with multiple parts are not supported because the current drawing "
-                                      "can't identify which parts should be drawn on top.")
+        # Clear the renderbuffer to start a new image
+        self.ctx.clear()
 
         # Render the parts in the order they are in the file.
         # Reason: Required for correct rendering of e.g. the grass block
         for part in data["elements"]:
-            img = self.render_single_cube(part, data["textures"], rotation_x_axis, rotation_y_axis)
-            return img
+            # Render a single cube
+            self.cube_model.render(mgl.TRIANGLES)
 
-        raise RuntimeError("This code should not be reachable. If support for multiple parts is added, "
-                           "the combined texture is returned here. Until then the checks above should "
-                           "ensure this code is never reached.")
+        # Read the data from the framebuffer and return it as a PIL.Image
+        return Image.frombytes("RGBA", (self.resolution, self.resolution), self.fbo.read(components=4))
 
     def render_blockstate_entry(self, data: dict) -> Image:
         # model, x, y, uvlock, weight
