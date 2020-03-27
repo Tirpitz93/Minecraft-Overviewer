@@ -298,6 +298,49 @@ def flip(image, arg1):
 
 
 ################################################################
+# Simple function for loading .obj files
+################################################################
+def load_obj(ctx, render_program, path):
+    raw_verticies = []
+    raw_uvs = []
+    raw_normals = []
+    raw_faces = []
+
+    with open(path, "r") as fp:
+        for line in fp.readlines():
+            line = line.strip()
+            if line[0] == '#':
+                continue
+            args = tuple(line.split(' ')[1:])
+            if line.startswith('v '):
+                raw_verticies.append(args)
+            elif line.startswith('vt '):
+                raw_uvs.append(args)
+            elif line.startswith('vn '):
+                raw_normals.append(args)
+            elif line.startswith('f '):
+                raw_faces.append((x.split('/') for x in args))
+            else:
+                pass
+
+    data = np.array([
+        value
+        for face in raw_faces
+        for vertex in face
+        for value_list in [
+            raw_verticies[int(vertex[0])-1],
+            raw_normals[int(vertex[2])-1],
+            raw_uvs[int(vertex[1])-1],
+        ]
+        for value in value_list
+    ], dtype="f4")
+    # print(data.reshape((data.size // 8, 8)))
+
+    cube_vbo = ctx.buffer(data.tobytes())
+    return ctx.simple_vertex_array(render_program, cube_vbo, "in_vert", "in_normal", "in_texcoord_0")
+
+
+################################################################
 # Main Code for Block Rendering
 ################################################################
 class BlockRenderer(object):
@@ -308,33 +351,6 @@ class BlockRenderer(object):
 
     # Storage for finding the data value
     data_map = defaultdict(list)
-
-    # Model of a cube
-    cube_vertices = np.array([
-        # x  y   z
-        -1, -1, -1,  #
-        -1, -1, 1,  #
-        -1, 1, -1,  #
-        -1, 1, 1,  #
-        1, -1, -1,  #
-        1, -1, 1,  #
-        1, 1, -1,  #
-        1, 1, 1  #
-    ], dtype="f4")
-    cube_indecies = np.array([
-        0, 2, 1,  # West
-        1, 2, 3,  # West
-        4, 6, 5,  # East
-        5, 6, 7,  # East
-        0, 4, 1,  # Bottom
-        1, 4, 5,  # Bottom
-        2, 6, 3,  # Top
-        3, 6, 7,  # Top
-        0, 4, 2,  # South
-        2, 4, 6,  # South
-        1, 5, 3,  # North
-        3, 5, 7  # North
-    ], dtype="i4")
 
     def __init__(self, textures, *, block_list=BLOCK_LIST, start_block_id: int=1, resolution: int=24,
                  vertex_shader: str="overviewer_core/rendering/default.vert",
@@ -369,15 +385,20 @@ class BlockRenderer(object):
         fbo = ctx.simple_framebuffer((self.resolution, self.resolution), components=4)
         fbo.use()
         render_program = ctx.program(vertex_shader=vertex_shader_src, fragment_shader=fragment_shader_src)
-        cube_vbo = ctx.buffer(self.cube_vertices.tobytes())
-        cube_ibo = ctx.buffer(self.cube_indecies.tobytes())
-        cube_vbo = ctx.vertex_array(render_program, [(cube_vbo, "3f", "in_vert")], cube_ibo)
+
+        cube_vao = load_obj(ctx, render_program, "overviewer_core/rendering/cube.obj")
 
         if projection_matrix is None:
             projection_matrix = self.calculate_projection_matrix()
+
+        img = self.load_img("block/oak_planks")
+        texture = ctx.texture(img.size, 4, img.tobytes())
+        texture.filter = (mgl.NEAREST, mgl.NEAREST)
+        texture.use()
+
         render_program["Mvp"].write(projection_matrix.astype('f4').tobytes())
 
-        return ctx, fbo, cube_vbo
+        return ctx, fbo, cube_vao
 
     def calculate_projection_matrix(self):
         # These values were found by trying out until a 5120x5120 image was correct
@@ -399,7 +420,7 @@ class BlockRenderer(object):
             [0, 0, 0, 1]
         ])
 
-        alpha = pi / 4
+        alpha = 3 * pi / 4
         s = sin(alpha)
         c = cos(alpha)
         rot_y = np.array([
@@ -675,3 +696,4 @@ class BlockRenderer(object):
                 logger.debug("Block found: {0} -> {1}:{2}".format(block_name, block_index, nbt_index))
                 BlockRenderer.store_nbt_as_int(block_name, nbt_condition, block_index + self.start_block_id, nbt_index)
                 yield (block_index + self.start_block_id, nbt_index), variants[0][0]
+
