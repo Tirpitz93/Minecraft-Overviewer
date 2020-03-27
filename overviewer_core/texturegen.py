@@ -400,7 +400,7 @@ class BlockRenderer(object):
             libegl='libEGL.so.1',
         )
         # DEPTH_TEST to calculate which face is visible, CULL_FACE to hide the backside of each face
-        ctx.enable(mgl.DEPTH_TEST | mgl.CULL_FACE)
+        ctx.enable(mgl.DEPTH_TEST | mgl.CULL_FACE | mgl.BLEND)
         # Create a framebuffer to render into
         fbo = ctx.simple_framebuffer((self.resolution, self.resolution), components=4)
         fbo.use()
@@ -427,11 +427,24 @@ class BlockRenderer(object):
         return ctx, fbo, cube_vao
 
     def calculate_projection_matrix(self):
-        # First the model is rotated by 125° around the vertical axis, then 30° around the horizontal
-        # This results in the kind-of-isometric view overviewer uses
+        # Orthographic view matrix
+        top = .8165
+        bot = -.8165
+        left = -.7073
+        right = .7073
+        near = -10
+        far = 10
+        projection_matrix = np.array([
+            [2 / (right-left), 0, 0, -(right+left)/(right-left)],
+            [0, 2/(top-bot), 0, -(top+bot)/(top-bot)],
+            [0, 0, -2/(far-near), -(far+near)/(far-near)],
+            [0, 0, 0, 1],
+        ], dtype="f4")
+
         # Rotation matricies from Wikipedia: https://en.wikipedia.org/wiki/Rotation_matrix
         # Alpha values from Wikipedia: https://en.wikipedia.org/wiki/Isometric_projection#Mathematics
         alpha = asin(tan(pi / 6))
+        print(alpha)
         s = sin(alpha)
         c = cos(alpha)
         rot_x = np.array([
@@ -441,7 +454,7 @@ class BlockRenderer(object):
             [0, 0, 0, 1]
         ])
 
-        alpha = 3 * pi / 4
+        alpha = pi / 4
         s = sin(alpha)
         c = cos(alpha)
         rot_y = np.array([
@@ -451,17 +464,12 @@ class BlockRenderer(object):
             [0, 0, 0, 1]
         ])
 
-        # After rotation this matrix scales the cube to fit into a square image required by overviewer
-        # These values were found by trying out until a 5120x5120 image was correct
-        scale_mat = np.array([
-            [.707, 0, 0, 0],
-            [0, .6124, 0, 0],
-            [0, 0, .5, 0],
-            [0, 0, 0, 1]
-        ])
+        transform = np.matmul(rot_x, rot_y)
+        view_matrix = np.linalg.inv(transform)
 
         # roty*rotx is the normal isometric view, the scale makes it fit into a square after applying the isometric view
-        return np.matmul(np.matmul(rot_y, rot_x), scale_mat)
+        # The transform matrix must be inverted and combined with the projection_matrix to get the VP matrix
+        return np.matmul(view_matrix, projection_matrix)
 
     ################################################################
     # Loading files
@@ -523,6 +531,21 @@ class BlockRenderer(object):
     ################################################################
     # Render methods
     ################################################################
+    def render_vertex_array(self, vertex_array: mgl.VertexArray, pos=(0, 0, 0), rot=(0, 0, 0), scale=(1, 1, 1)):
+        # Write uniform values and render the vertex_array
+        vertex_array.program["pos"].write(np.array(pos, dtype="f4"))
+        vertex_array.program["scale"].write(np.array(scale, dtype="f4"))
+        vertex_array.render()
+
+    def render_element(self, element, rotation_x_axis, rotation_y_axis, uvlock):
+        # Convert the two cube corners into postion, and scale
+        pos = tuple((t + f) / 32 - .5 for f, t in zip(element["from"], element["to"]))
+        rot = (0, 0, 0)     # Not implemented yet
+        scale = tuple((t - f) / 16 for f, t in zip(element["from"], element["to"]))
+
+        # Render the cube
+        self.render_vertex_array(self.cube_model, pos, rot, scale)
+
     def render_model(self, data: dict, rotation_x_axis, rotation_y_axis, uvlock):
         """
         This method is currently only using existing draw methods. Because of that only full size blocks can be created.
@@ -544,14 +567,13 @@ class BlockRenderer(object):
 
         # Check if the blocks is currently supported
         for part in data["elements"]:
-            if part["from"] != [0, 0, 0] or part["to"] != [16, 16, 16]:
-                raise NotImplementedError("Partial Blocks are not supported")
             if "rotation" in part:
                 raise NotImplementedError("Rotated Elements are not supported")
 
             for face_name, definition in part["faces"].items():
                 if "uv" in definition and definition["uv"] != [0, 0, 16, 16]:
-                    raise NotImplementedError("Only elements with UV [0, 0, 16, 16] are supported")
+                    # raise NotImplementedError("Only elements with UV [0, 0, 16, 16] are supported")
+                    pass
 
         # Clear the renderbuffer to start a new image
         self.ctx.clear()
@@ -560,10 +582,11 @@ class BlockRenderer(object):
         # Reason: Required for correct rendering of e.g. the grass block
         for part in data["elements"]:
             # Render a single cube
-            self.cube_model.render(mgl.TRIANGLES)
+            self.render_element(part, rotation_x_axis, rotation_y_axis, uvlock)
 
         # Read the data from the framebuffer and return it as a PIL.Image
-        return Image.frombytes("RGBA", (self.resolution, self.resolution), self.fbo.read(components=4))
+        img = Image.frombytes("RGBA", (self.resolution, self.resolution), self.fbo.read(components=4))
+        return img.transpose(Image.FLIP_TOP_BOTTOM)
 
     def render_blockstate_entry(self, data: dict) -> Image:
         # model, x, y, uvlock, weight
