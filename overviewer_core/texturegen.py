@@ -301,11 +301,24 @@ def flip(image, arg1):
 # Simple function for loading .obj files
 ################################################################
 def load_obj(ctx, render_program, path):
+    """
+    This method loads a .obj file and creates a model that can be rendered using moderngl.
+
+    Wavefont (.obj) files reference verticies, uvs and normals for each vertex with different indicies.
+    ModernGL does not support different indicies for verticies, uvs and normals.
+
+    In addition to de-referencing the verticies, uvs and normals they are combined into a single VertexBuffer.
+
+    Finally a VertexArray is created, that can be rendered using
+    return_value.render(mode=mgl.TRIANGLES)
+    """
+    # Store all verticies, uvs, normals and faces for later processing
     raw_verticies = []
     raw_uvs = []
     raw_normals = []
     raw_faces = []
 
+    # Read data from the file and store it into the arrays above
     with open(path, "r") as fp:
         for line in fp.readlines():
             line = line.strip()
@@ -323,20 +336,25 @@ def load_obj(ctx, render_program, path):
             else:
                 pass
 
+    # Combine all arrays and do the de-referencing
     data = np.array([
         value
         for face in raw_faces
         for vertex in face
-        for value_list in [
+        for value_list in [         # Each vertex consists of a position, normal and a uv
             raw_verticies[int(vertex[0])-1],
             raw_normals[int(vertex[2])-1],
             raw_uvs[int(vertex[1])-1],
         ]
-        for value in value_list
+        for value in value_list     # Combine all small arrays into a single large one
     ], dtype="f4")
+
+    # By reshaping the array all values can be read more easily
     # print(data.reshape((data.size // 8, 8)))
 
+    # Create a buffer containing the data
     cube_vbo = ctx.buffer(data.tobytes())
+    # Create a VertexArray bound to the buffer and the render_program
     return ctx.simple_vertex_array(render_program, cube_vbo, "in_vert", "in_normal", "in_texcoord_0")
 
 
@@ -381,33 +399,36 @@ class BlockRenderer(object):
             libgl='libGL.so.1',
             libegl='libEGL.so.1',
         )
+        # DEPTH_TEST to calculate which face is visible, CULL_FACE to hide the backside of each face
         ctx.enable(mgl.DEPTH_TEST | mgl.CULL_FACE)
+        # Create a framebuffer to render into
         fbo = ctx.simple_framebuffer((self.resolution, self.resolution), components=4)
         fbo.use()
+        # Compile the shaders
         render_program = ctx.program(vertex_shader=vertex_shader_src, fragment_shader=fragment_shader_src)
 
+        # Load cube.obj to get a model to render (ArrayBuffer)
         cube_vao = load_obj(ctx, render_program, "overviewer_core/rendering/cube.obj")
 
+        # If no projection_matrix is given use the kind-of isometric view used by Overviewer
         if projection_matrix is None:
             projection_matrix = self.calculate_projection_matrix()
 
+        # Load and use a texture
+        # TODO: Replace this by a Texturemap and adjust the shaders
         img = self.load_img("block/oak_planks")
         texture = ctx.texture(img.size, 4, img.tobytes())
-        texture.filter = (mgl.NEAREST, mgl.NEAREST)
+        texture.filter = (mgl.NEAREST, mgl.NEAREST)     # Use the nearest pixel instead of lineary interpolating
         texture.use()
 
+        # Set the "uniform" values the shaders require
         render_program["Mvp"].write(projection_matrix.astype('f4').tobytes())
 
         return ctx, fbo, cube_vao
 
     def calculate_projection_matrix(self):
-        # These values were found by trying out until a 5120x5120 image was correct
-        scale_mat = np.array([
-            [.707, 0, 0, 0],
-            [0, .6124, 0, 0],
-            [0, 0, .5, 0],
-            [0, 0, 0, 1]
-        ])
+        # First the model is rotated by 125° around the vertical axis, then 30° around the horizontal
+        # This results in the kind-of-isometric view overviewer uses
         # Rotation matricies from Wikipedia: https://en.wikipedia.org/wiki/Rotation_matrix
         # Alpha values from Wikipedia: https://en.wikipedia.org/wiki/Isometric_projection#Mathematics
         alpha = asin(tan(pi / 6))
@@ -427,6 +448,15 @@ class BlockRenderer(object):
             [c, 0, s, 0],
             [0, 1, 0, 0],
             [-s, 0, c, 0],
+            [0, 0, 0, 1]
+        ])
+
+        # After rotation this matrix scales the cube to fit into a square image required by overviewer
+        # These values were found by trying out until a 5120x5120 image was correct
+        scale_mat = np.array([
+            [.707, 0, 0, 0],
+            [0, .6124, 0, 0],
+            [0, 0, .5, 0],
             [0, 0, 0, 1]
         ])
 
@@ -494,13 +524,12 @@ class BlockRenderer(object):
     # Render methods
     ################################################################
     def render_single_cube(self, part, textures, rotation_x_axis, rotation_y_axis):
-
+        # Clear the renderbuffer to start a new image
         self.ctx.clear()
+        # Render a single cube
         self.cube_model.render(mgl.TRIANGLES)
+        # Read the data from the framebuffer and return it as a PIL.Image
         return Image.frombytes("RGBA", (self.resolution, self.resolution), self.fbo.read(components=4))
-
-
-        # return Image.new("RGBA", (24, 24))
 
         """
         Limitations:
