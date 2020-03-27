@@ -783,7 +783,7 @@ class Textures(object):
             img.putpixel((x,y), img.getpixel((x+1,y)))
         global IMG_N
         # IMG_N +=1
-        # img.save("C:/Datafile/LSelter/Documents/Minecraft-Overviewer/test_Conf/debug/"+ str(IMG_N) + ".png")
+        # img.save("C:/Datafile/LSelter/Documents/Minecraft-Overviewer/test_conf/debug/"+ str(IMG_N) + ".png")
         return img
 
     def build_sprite(self, side):

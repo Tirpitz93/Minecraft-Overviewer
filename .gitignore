@@ -43,3 +43,6 @@ overviewer_core/src/primitives.h
 /.vs
 .vscode
 ImagingUtils.h
+
+#test config directory and run scripts
+test_conf
