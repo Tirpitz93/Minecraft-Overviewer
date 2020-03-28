@@ -135,8 +135,8 @@ def load_obj(ctx, render_program, path):
 # Main Code for Block Rendering
 ################################################################
 class BlockRenderer(object):
-
-
+    # DEFAULT_LIGHT_VECTOR = (-0.9, 1, 0.8)
+    DEFAULT_LIGHT_VECTOR = (-.8, 1, .7)
 
     # Storage for finding the data value
     data_map = defaultdict(list)
@@ -144,7 +144,7 @@ class BlockRenderer(object):
     def __init__(self, textures, *, block_list=None, start_block_id: int=1, resolution: int=24,
                  vertex_shader: str="overviewer_core/rendering/default.vert",
                  fragment_shader: str="overviewer_core/rendering/default.frag",
-                 projection_matrix=None, mc_texture_size=16):
+                 projection_matrix=None, mc_texture_size=16, light_vector=DEFAULT_LIGHT_VECTOR):
         # Not direclty related to rendering
         self.textures = textures
         self.assetLoader = AssetLoader(textures.find_file_local_path)
@@ -158,14 +158,17 @@ class BlockRenderer(object):
         self.resolution = resolution
 
         # Configure rendering
-        self.ctx, self.fbo, self.cube_model = self.setup_rendering(vertex_shader, fragment_shader, projection_matrix)
+        self.ctx, self.fbo, self.cube_model = self.setup_rendering(
+            vertex_shader, fragment_shader, projection_matrix, light_vector
+        )
 
-    def setup_rendering(self, vertex_shader, fragment_shader, projection_matrix=None):
+    def setup_rendering(self, vertex_shader, fragment_shader, projection_matrix=None,
+                        light_vector=DEFAULT_LIGHT_VECTOR):
         # Read shader source-code
-
-        with open(os.path.join(get_program_path(),vertex_shader)) as fp:
+        
+        with open(os.path.join(get_program_path(), vertex_shader)) as fp:
             vertex_shader_src = fp.read()
-        with open(os.path.join(get_program_path(),fragment_shader)) as fp:
+        with open(os.path.join(get_program_path(), fragment_shader)) as fp:
             fragment_shader_src = fp.read()
 
         # Setup for rendering
@@ -213,6 +216,7 @@ class BlockRenderer(object):
 
         # Set the "uniform" values the shaders require
         render_program["Mvp"].write(projection_matrix.astype('f4').tobytes())
+        render_program["dir_light"].write(np.array(light_vector, dtype="f4").tobytes())
 
         return ctx, fbo, cube_vao
 
