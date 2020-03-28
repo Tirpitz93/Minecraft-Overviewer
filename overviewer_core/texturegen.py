@@ -1,276 +1,20 @@
-import os
 import json
 from collections import defaultdict
 from functools import lru_cache
+
 import moderngl as mgl
 import numpy as np
 from math import sin, cos, tan, asin, pi
+
 
 from PIL import Image
 import logging
 
 logger = logging.getLogger(__name__)
+from overviewer_core.asset_loader import AssetLoader
+
 START_BLOCK_ID = 20000
-BLOCK_LIST = [
-    "dirt",
-    "cyan_stained_glass",
-    "gray_concrete_powder",
-    "red_terracotta",
-    "quartz_block",
-    "beehive",
-    "birch_leaves",
-    "gray_concrete",
-    "brown_glazed_terracotta",
-    "magma_block",
-    "hay_block",
-    "oak_log",
-    "end_stone_bricks",
-    "iron_ore",
-    "emerald_block",
-    "light_blue_concrete_powder",
-    "black_concrete_powder",
-    "jigsaw",
-    "dispenser",
-    "green_terracotta",
-    "dead_brain_coral_block",
-    "red_concrete",
-    "mossy_cobblestone",
-    "barrel",
-    "repeating_command_block",
-    "stripped_jungle_log",
-    "magenta_concrete",
-    "gray_wool",
-    "diamond_ore",
-    "orange_stained_glass",
-    "white_wool",
-    "blue_ice",
-    "terracotta",
-    "redstone_lamp",
-    "dark_oak_planks",
-    "wither_skeleton_wall_skull",
-    "polished_andesite",
-    "ice",
-    "purple_glazed_terracotta",
-    "jungle_log",
-    "prismarine",
-    "light_gray_concrete",
-    "red_sandstone",
-    "orange_concrete_powder",
-    "coarse_dirt",
-    "gold_block",
-    "light_blue_terracotta",
-    "wet_sponge",
-    "white_glazed_terracotta",
-    "lime_terracotta",
-    "white_concrete",
-    "green_wool",
-    "birch_planks",
-    "purpur_block",
-    "cracked_stone_bricks",
-    "lapis_block",
-    "iron_block",
-    "magenta_concrete_powder",
-    "black_stained_glass",
-    "chiseled_red_sandstone",
-    "spruce_planks",
-    "coal_ore",
-    "red_nether_bricks",
-    "crafting_table",
-    "stone_bricks",
-    "black_concrete",
-    "stripped_jungle_wood",
-    "smoker",
-    "pink_wool",
-    "diamond_block",
-    "black_glazed_terracotta",
-    "chiseled_sandstone",
-    "dark_oak_wood",
-    "mycelium",
-    "gray_glazed_terracotta",
-    "purpur_pillar",
-    "lime_wool",
-    "cyan_concrete_powder",
-    "infested_cracked_stone_bricks",
-    "stripped_spruce_log",
-    "yellow_wool",
-    "dead_bubble_coral_block",
-    "oak_planks",
-    "white_concrete_powder",
-    "dark_oak_leaves",
-    "emerald_ore",
-    "jack_o_lantern",
-    "pink_terracotta",
-    "podzol",
-    "nether_quartz_ore",
-    "andesite",
-    "end_stone",
-    "chiseled_stone_bricks",
-    "sponge",
-    "stripped_acacia_wood",
-    "furnace",
-    "brown_concrete",
-    "cut_sandstone",
-    "red_sand",
-    "light_blue_wool",
-    "cyan_concrete",
-    "infested_mossy_stone_bricks",
-    "light_blue_stained_glass",
-    "cyan_glazed_terracotta",
-    "acacia_planks",
-    "blast_furnace",
-    "netherrack",
-    "nether_bricks",
-    "piston",
-    "infested_stone_bricks",
-    "fire_coral_block",
-    "skeleton_wall_skull",
-    "snow_block",
-    "stripped_oak_wood",
-    "lime_concrete_powder",
-    "light_gray_wool",
-    "gray_stained_glass",
-    "lime_concrete",
-    "quartz_pillar",
-    "dead_tube_coral_block",
-    "acacia_leaves",
-    "cartography_table",
-    "red_glazed_terracotta",
-    "dropper",
-    "birch_log",
-    "red_stained_glass",
-    "diorite",
-    "smithing_table",
-    "glowstone",
-    "melon",
-    "wither_skeleton_skull",
-    "yellow_terracotta",
-    "light_gray_stained_glass",
-    "prismarine_bricks",
-    "cyan_wool",
-    "jukebox",
-    "white_terracotta",
-    "mossy_stone_bricks",
-    "green_concrete",
-    "orange_concrete",
-    "pink_concrete",
-    "blue_concrete",
-    "brown_concrete_powder",
-    "white_stained_glass",
-    "sand",
-    "stripped_dark_oak_wood",
-    "yellow_stained_glass",
-    "cobblestone",
-    "chain_command_block",
-    "lapis_ore",
-    "acacia_log",
-    "spruce_wood",
-    "spruce_leaves",
-    "smooth_stone",
-    "oak_wood",
-    "oak_leaves",
-    "purple_concrete_powder",
-    "gray_terracotta",
-    "yellow_concrete_powder",
-    "note_block",
-    "magenta_stained_glass",
-    "smooth_quartz",
-    "light_gray_glazed_terracotta",
-    "magenta_glazed_terracotta",
-    "infested_cobblestone",
-    "clay",
-    "horn_coral_block",
-    "glass",
-    "stripped_spruce_wood",
-    "lime_glazed_terracotta",
-    "purple_wool",
-    "smooth_red_sandstone",
-    "light_blue_concrete",
-    "obsidian",
-    "brown_wool",
-    "blue_stained_glass",
-    "light_blue_glazed_terracotta",
-    "red_wool",
-    "jungle_planks",
-    "purple_terracotta",
-    "gravel",
-    "blue_concrete_powder",
-    "light_gray_terracotta",
-    "cut_red_sandstone",
-    "dark_prismarine",
-    "black_terracotta",
-    "loom",
-    "yellow_concrete",
-    "light_gray_concrete_powder",
-    "soul_sand",
-    "pink_concrete_powder",
-    "command_block",
-    "sea_lantern",
-    "spruce_log",
-    "skeleton_skull",
-    "bubble_coral_block",
-    "lime_stained_glass",
-    "purple_stained_glass",
-    "jungle_leaves",
-    "sandstone",
-    "fletching_table",
-    "green_stained_glass",
-    "polished_granite",
-    "dead_horn_coral_block",
-    "stripped_birch_wood",
-    "bee_nest",
-    "brown_stained_glass",
-    "yellow_glazed_terracotta",
-    "cyan_terracotta",
-    "green_concrete_powder",
-    "pink_glazed_terracotta",
-    "black_wool",
-    "purple_concrete",
-    "bone_block",
-    "blue_terracotta",
-    "stripped_dark_oak_log",
-    "green_glazed_terracotta",
-    "redstone_ore",
-    "blue_wool",
-    "dark_oak_log",
-    "orange_terracotta",
-    "packed_ice",
-    "chiseled_quartz_block",
-    "orange_glazed_terracotta",
-    "bricks",
-    "honeycomb_block",
-    "structure_block",
-    "sticky_piston",
-    "acacia_wood",
-    "bookshelf",
-    "pumpkin",
-    "stripped_oak_log",
-    "stripped_acacia_log",
-    "blue_glazed_terracotta",
-    "frosted_ice",
-    "redstone_block",
-    "orange_wool",
-    "brain_coral_block",
-    "gold_ore",
-    "nether_wart_block",
-    "jungle_wood",
-    "coal_block",
-    "magenta_terracotta",
-    "smooth_sandstone",
-    "tube_coral_block",
-    "stripped_birch_log",
-    "polished_diorite",
-    "magenta_wool",
-    "spawner",
-    "dead_fire_coral_block",
-    "pink_stained_glass",
-    "carved_pumpkin",
-    "red_concrete_powder",
-    "granite",
-    "birch_wood",
-    "brown_terracotta",
-    "infested_chiseled_stone_bricks",
-    "tnt",
-]
+
 
 ################################################################
 # Constants and helper methods for the BlockRenderer
@@ -362,10 +106,8 @@ def load_obj(ctx, render_program, path):
 # Main Code for Block Rendering
 ################################################################
 class BlockRenderer(object):
-    # Paths in the jar file
-    BLOCKSTATES_DIR = "assets/minecraft/blockstates"
-    MODELS_DIR = "assets/minecraft/models"
-    TEXTURES_DIR = "assets/minecraft/textures"
+
+
 
     # Storage for finding the data value
     data_map = defaultdict(list)
@@ -375,9 +117,13 @@ class BlockRenderer(object):
                  fragment_shader: str="overviewer_core/rendering/default.frag",
                  projection_matrix=None):
         # Not direclty related to rendering
+
         self.textures = textures
+        self.assetLoader = AssetLoader(textures.find_file_local_path)
         self.start_block_id = start_block_id
-        self.block_list = block_list
+        if block_list is None:
+            self.block_list = self.assetLoader.walk_assets(self.assetLoader.BLOCKSTATES_DIR, r".json")
+        else: self.block_list = block_list
 
         # Settings for rendering
         self.resolution = resolution
@@ -474,58 +220,17 @@ class BlockRenderer(object):
     ################################################################
     # Loading files
     ################################################################
-    def load_file(self, path:str, name:str, ext:str):
-        if ":" in name:
-            return self.textures.find_file("{0}/{1}{2}".format(path,name.split(":")[1],ext))
-        else:
-            return self.textures.find_file("{0}/{1}{2}".format(path,name,ext))
 
-    def load_json(self, name: str, directory: str) -> dict:
-        with self.load_file(directory, name, ".json") as f:
-            return json.load(f)
 
-    def load_blockstates(self, name: str) -> dict:
-        return self.load_json(name, self.BLOCKSTATES_DIR)
-
-    def load_model(self, name: str) -> dict:
-        return self.load_json(name, self.MODELS_DIR)
-
-    @lru_cache()
-    def load_img(self, texture_name):
-        with self.load_file(self.TEXTURES_DIR, texture_name, ".png") as f:
-            return Image.open(f).convert("RGBA")
 
     ################################################################
     # Model file parsing
     ################################################################
-    @staticmethod
-    def combine_textures_fields(textures_field: dict, parent_textures_field: dict) -> dict:
-        return {
-            **{
-                key: textures_field.get(value[1:], value) if value[0] == '#' else value
-                for key, value in parent_textures_field.items()
-            },
-            **textures_field
-        }
 
-    def load_and_combine_model(self, name):
-        data = self.load_model(name)
-        if "parent" in data:
-            # Load the JSON from the parent
-            parent_data = self.load_and_combine_model(data["parent"])
-            elements_field = data.get("elements", parent_data.get("elements"))
-            textures_field = self.combine_textures_fields(data.get("textures", {}), parent_data.get("textures", {}))
-        else:
-            elements_field = data.get("elements")
-            textures_field = data.get("textures", {})
 
-        return {
-            "textures": textures_field,
-            "elements": elements_field,
-        }
 
     def get_max_nbt_count(self, name: str) -> int:
-        data = self.load_blockstates(name)
+        data = self.assetLoader.load_blockstates(name)
         return len(data.get("variants", []))
 
     ################################################################
@@ -545,6 +250,7 @@ class BlockRenderer(object):
 
         # Render the cube
         self.render_vertex_array(self.cube_model, pos, rot, scale)
+
 
     def render_model(self, data: dict, rotation_x_axis, rotation_y_axis, uvlock):
         """
@@ -591,7 +297,7 @@ class BlockRenderer(object):
     def render_blockstate_entry(self, data: dict) -> Image:
         # model, x, y, uvlock, weight
         return self.render_model(
-            data=self.load_and_combine_model(data["model"]),
+            data=self.assetLoader.load_and_combine_model(data["model"]),
             rotation_x_axis=data.get("x", 0),  # Increments of 90°
             rotation_y_axis=data.get("y", 0),  # Increments of 90°
             uvlock=data.get("uvlock", False)
@@ -645,7 +351,7 @@ class BlockRenderer(object):
         for block_index, block_name in enumerate(name_list):
             try:
                 for nbt_index, (nbt_condition, variants) in enumerate(
-                        self.render_blockstates(self.load_blockstates(name=block_name))
+                        self.render_blockstates(self.assetLoader.load_blockstates(name=block_name))
                 ):
                     yield block_index, block_name, nbt_index, nbt_condition, variants
             except NotImplementedError as e:
@@ -653,19 +359,15 @@ class BlockRenderer(object):
                     raise e
 
     def iter_all_blocks(self, ignore_unsupported_blocks=True):
-        # TODO: Getting the find_file_local_path from textures is cheating and only works if the jar file is extracted
-        blockstates_dir = self.textures.find_file_local_path + "/assets/minecraft/blockstates"
-        logger.debug("Searching for blockstates in " + blockstates_dir)
-        return self.iter_blocks([
-            fn.split('.', 1)[0]
-            for _, _, files in os.walk(blockstates_dir)
-            for fn in files
-            if fn.split('.', 1)[1] == "json"
-        ], ignore_unsupported_blocks=ignore_unsupported_blocks)
+
+        logger.debug("Searching for blockstates in " + self.assetLoader.BLOCKSTATES_DIR)
+
+       
+        return self.iter_blocks(sorted(self.assetLoader.walk_assets(self.assetLoader.BLOCKSTATES_DIR, r".json")))
 
     def get_max_size(self) -> (int, int):
-        blockid_count = len(self.block_list)
-        data_count = max(self.get_max_nbt_count(name) for name in self.block_list)
+        blockid_count = len(list(self.block_list))
+        data_count = max(self.get_max_nbt_count(name) for name in list(self.block_list))
         return blockid_count + self.start_block_id, data_count
 
     def iter_for_generate(self):
