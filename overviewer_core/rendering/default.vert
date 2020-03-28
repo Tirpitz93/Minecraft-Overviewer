@@ -74,9 +74,9 @@ void main() {
     if (uvlock) {
         // Calculate the UVs from the world-position of the vertex
         texCoord = vec3(
-            vec2(0.5 + pos_in_block.x, -pos_in_block.y) * abs(rot_normals.z) +
-            vec2(0.5 - pos_in_block.z, pos_in_block.y) * rot_normals.x +
-            vec2(0.5 + pos_in_block.x, pos_in_block.z) * rot_normals.y,
+            vec2(0.5 + pos_in_block.x, 0.5 - pos_in_block.y) * abs(rot_normals.z) +
+            vec2(0.5 - pos_in_block.z, 0.5 + pos_in_block.y) * rot_normals.x +
+            vec2(0.5 + pos_in_block.x, 0.5 + pos_in_block.z) * rot_normals.y,
             face_texture_ids[in_faceid]);
     }
     else {
