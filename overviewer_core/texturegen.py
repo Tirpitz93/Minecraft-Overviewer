@@ -1,4 +1,5 @@
 import os
+import typing
 from collections import defaultdict
 
 import moderngl as mgl
@@ -196,27 +197,14 @@ class BlockRenderer(object):
         if projection_matrix is None:
             projection_matrix = self.calculate_projection_matrix()
 
-        # Load and use a texture
-        # TODO: Replace this by a Texturemap and adjust the shaders
-        # img = self.assetLoader.load_img("block/oak_planks")
-        # texture = ctx.texture(img.size, 4, img.tobytes())
-        # texture.filter = (mgl.NEAREST, mgl.NEAREST)     # Use the nearest pixel instead of lineary interpolating
-        # texture.use()
-
-        # TODO: All textures have to be of size mc_texture_size*mc_texture_size
-        test_textures = [
-            self.assetLoader.load_img("block/stone"),
-            self.assetLoader.load_img("block/melon_top"),
-            self.assetLoader.load_img("block/oak_planks"),
-            self.assetLoader.load_img("block/dirt"),
-            self.assetLoader.load_img("block/melon_top"),
-            self.assetLoader.load_img("block/white_wool"),
-        ]
+        # Load all textures into a single TextureArray
+        # All textures have to be of size mc_texture_size*mc_texture_size
+        texture_list = self.get_all_textures()
         texture_array = ctx.texture_array(
-            size=(self.mc_texture_size, self.mc_texture_size, len(test_textures)),
+            size=(self.mc_texture_size, self.mc_texture_size, len(texture_list)),
             components=4,
             data=b''.join([
-                img.tobytes() for img in test_textures
+                img.tobytes() for img in texture_list
             ])
         )
         texture_array.filter = mgl.NEAREST, mgl.NEAREST
@@ -273,17 +261,27 @@ class BlockRenderer(object):
         return np.matmul(view_matrix, projection_matrix)
 
     ################################################################
-    # Loading files
+    # Finding and indexing textures
     ################################################################
+    def get_all_textures(self):
+        # TODO: Implement this function
+        # All textures have to be of size mc_texture_size*mc_texture_size
+        return [
+            self.assetLoader.load_img("block/stone"),
+            self.assetLoader.load_img("block/melon_top"),
+            self.assetLoader.load_img("block/oak_planks"),
+            self.assetLoader.load_img("block/dirt"),
+            self.assetLoader.load_img("block/melon_top"),
+            self.assetLoader.load_img("block/white_wool"),
+        ]
 
-
+    def get_texture_index(self, name) -> int:
+        # TODO: Implement this function
+        return 0
 
     ################################################################
     # Model file parsing
     ################################################################
-
-
-
     def get_max_nbt_count(self, name: str) -> int:
         data = self.assetLoader.load_blockstates(name)
         return len(data.get("variants", []))
@@ -299,14 +297,20 @@ class BlockRenderer(object):
         vertex_array.program["scale"].write(np.array(scale, dtype="f4"))
         vertex_array.render()
 
-    def render_element(self, element, rotation_x_axis, rotation_y_axis, uvlock):
+    def render_element(self, element, texture_variables: dict, rotation_x_axis, rotation_y_axis, uvlock):
         # Convert the two cube corners into postion, and scale
         pos = tuple((t + f) / 32 - .5 for f, t in zip(element["from"], element["to"]))
         rot = (0, 0, 0)     # Not implemented yet
         scale = tuple((t - f) / 16 for f, t in zip(element["from"], element["to"]))
+        face_ids = [
+            self.get_texture_index(texture_variables[element["faces"][face_name]["texture"][1:]])
+            if face_name in element["faces"]
+            else 0
+            for face_name in ["north", "east", "south", "west", "up", "down"]
+        ]
 
         # Render the cube
-        self.render_vertex_array(self.cube_model, [0, 1, 2, 3, 4, 5], pos=pos, rot=rot, scale=scale)
+        self.render_vertex_array(self.cube_model, face_ids, pos=pos, rot=rot, scale=scale)
 
     def render_model(self, data: dict, rotation_x_axis, rotation_y_axis, uvlock):
         """
@@ -344,7 +348,7 @@ class BlockRenderer(object):
         # Reason: Required for correct rendering of e.g. the grass block
         for part in data["elements"]:
             # Render a single cube
-            self.render_element(part, rotation_x_axis, rotation_y_axis, uvlock)
+            self.render_element(part, data["textures"], rotation_x_axis, rotation_y_axis, uvlock)
 
         # Read the data from the framebuffer and return it as a PIL.Image
         img = Image.frombytes("RGBA", (self.resolution, self.resolution), self.fbo.read(components=4))
