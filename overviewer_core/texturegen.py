@@ -277,7 +277,7 @@ class BlockRenderer(object):
 
     def get_texture_index(self, name) -> int:
         # TODO: Implement this function
-        return 0
+        return 2
 
     ################################################################
     # Model file parsing
@@ -289,10 +289,11 @@ class BlockRenderer(object):
     ################################################################
     # Render methods
     ################################################################
-    def render_vertex_array(self, vertex_array: mgl.VertexArray, face_ids: list, *,
+    def render_vertex_array(self, vertex_array: mgl.VertexArray, face_texture_ids: list, face_uvs: list, *,
                             pos=(0, 0, 0), rot=(0, 0, 0), scale=(1, 1, 1)):
         # Write uniform values and render the vertex_array
-        vertex_array.program["face_texture_ids"].write(np.array(face_ids, dtype="u4").tobytes())
+        vertex_array.program["face_texture_ids"].write(np.array(face_texture_ids, dtype="u4").tobytes())
+        vertex_array.program["face_uvs"].write(np.array(face_uvs, dtype="f4").tobytes())
         vertex_array.program["pos"].write(np.array(pos, dtype="f4"))
         vertex_array.program["scale"].write(np.array(scale, dtype="f4"))
         vertex_array.render()
@@ -302,15 +303,20 @@ class BlockRenderer(object):
         pos = tuple((t + f) / 32 - .5 for f, t in zip(element["from"], element["to"]))
         rot = (0, 0, 0)     # Not implemented yet
         scale = tuple((t - f) / 16 for f, t in zip(element["from"], element["to"]))
-        face_ids = [
+        face_texture_ids = [
             self.get_texture_index(texture_variables[element["faces"][face_name]["texture"][1:]])
             if face_name in element["faces"]
             else 0
             for face_name in ["north", "east", "south", "west", "up", "down"]
         ]
+        face_uvs = [
+            value / 16
+            for face_name in ["north", "east", "south", "west", "up", "down"]
+            for value in element["faces"].get(face_name, {}).get("uv", (0, 0, 16, 16))
+        ]
 
         # Render the cube
-        self.render_vertex_array(self.cube_model, face_ids, pos=pos, rot=rot, scale=scale)
+        self.render_vertex_array(self.cube_model, face_texture_ids, face_uvs, pos=pos, rot=rot, scale=scale)
 
     def render_model(self, data: dict, rotation_x_axis, rotation_y_axis, uvlock):
         """
