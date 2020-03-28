@@ -1,7 +1,5 @@
-import json
 import os
 from collections import defaultdict
-from functools import lru_cache
 
 import moderngl as mgl
 import numpy as np
@@ -77,7 +75,7 @@ def load_obj(ctx, render_program, path):
             elif line.startswith('vn '):
                 raw_normals.append(args)
             elif line.startswith('f '):
-                raw_faces.append((x.split('/') for x in args))
+                raw_faces.append(tuple(x.split('/') for x in args))
             else:
                 pass
 
@@ -94,13 +92,41 @@ def load_obj(ctx, render_program, path):
         for value in value_list     # Combine all small arrays into a single large one
     ], dtype="f4")
 
+    # This array is used to ensure faces always have the same id in later code.
+    # This should only need to be changed if cube.obj changes
+    # The index is the normal-index from cube.obj
+    # The value is the index used later for this face
+    face_mapping = [
+        4,  # Top
+        2,  # South
+        3,  # West
+        5,  # Bottom
+        1,  # East
+        0   # North
+    ]
+
+    print(raw_faces)
+    face_indicies = np.array([
+        face_mapping[int(vertex[2])-1]
+        for face in raw_faces
+        for vertex in face
+    ], dtype="u4")
+
     # By reshaping the array all values can be read more easily
     # print(data.reshape((data.size // 8, 8)))
+    # print(face_indicies)
 
     # Create a buffer containing the data
     cube_vbo = ctx.buffer(data.tobytes())
+    cube_vbo_int = ctx.buffer(face_indicies.tobytes())
     # Create a VertexArray bound to the buffer and the render_program
-    return ctx.simple_vertex_array(render_program, cube_vbo, "in_vert", "in_normal", "in_texcoord_0")
+    return ctx.vertex_array(
+        render_program,
+        [
+            (cube_vbo, "3f4 3f4 2f4", "in_vert", "in_normal", "in_texcoord_0"),
+            (cube_vbo_int, "u4", "in_faceid")
+        ]
+    )
 
 
 ################################################################
@@ -116,12 +142,12 @@ class BlockRenderer(object):
     def __init__(self, textures, *, block_list=None, start_block_id: int=1, resolution: int=24,
                  vertex_shader: str="overviewer_core/rendering/default.vert",
                  fragment_shader: str="overviewer_core/rendering/default.frag",
-                 projection_matrix=None):
+                 projection_matrix=None, mc_texture_size=16):
         # Not direclty related to rendering
-
         self.textures = textures
         self.assetLoader = AssetLoader(textures.find_file_local_path)
         self.start_block_id = start_block_id
+        self.mc_texture_size = mc_texture_size
         if block_list is None:
             self.block_list = self.assetLoader.walk_assets(self.assetLoader.BLOCKSTATES_DIR, r".json")
         else: self.block_list = block_list
@@ -142,6 +168,8 @@ class BlockRenderer(object):
 
         # Setup for rendering
         try:
+            # TODO: EGL seems to need some commands first (currently manually executed)
+            #  They probably must only be executed once per shell?
             ctx = mgl.create_context(
                 standalone=True,
                 backend='egl',
@@ -170,10 +198,29 @@ class BlockRenderer(object):
 
         # Load and use a texture
         # TODO: Replace this by a Texturemap and adjust the shaders
-        img = self.assetLoader.load_img("block/oak_planks")
-        texture = ctx.texture(img.size, 4, img.tobytes())
-        texture.filter = (mgl.NEAREST, mgl.NEAREST)     # Use the nearest pixel instead of lineary interpolating
-        texture.use()
+        # img = self.assetLoader.load_img("block/oak_planks")
+        # texture = ctx.texture(img.size, 4, img.tobytes())
+        # texture.filter = (mgl.NEAREST, mgl.NEAREST)     # Use the nearest pixel instead of lineary interpolating
+        # texture.use()
+
+        # TODO: All textures have to be of size mc_texture_size*mc_texture_size
+        test_textures = [
+            self.assetLoader.load_img("block/stone"),
+            self.assetLoader.load_img("block/melon_top"),
+            self.assetLoader.load_img("block/oak_planks"),
+            self.assetLoader.load_img("block/dirt"),
+            self.assetLoader.load_img("block/melon_top"),
+            self.assetLoader.load_img("block/white_wool"),
+        ]
+        texture_array = ctx.texture_array(
+            size=(self.mc_texture_size, self.mc_texture_size, len(test_textures)),
+            components=4,
+            data=b''.join([
+                img.tobytes() for img in test_textures
+            ])
+        )
+        texture_array.filter = mgl.NEAREST, mgl.NEAREST
+        texture_array.use()
 
         # Set the "uniform" values the shaders require
         render_program["Mvp"].write(projection_matrix.astype('f4').tobytes())
@@ -244,8 +291,10 @@ class BlockRenderer(object):
     ################################################################
     # Render methods
     ################################################################
-    def render_vertex_array(self, vertex_array: mgl.VertexArray, pos=(0, 0, 0), rot=(0, 0, 0), scale=(1, 1, 1)):
+    def render_vertex_array(self, vertex_array: mgl.VertexArray, face_ids: list, *,
+                            pos=(0, 0, 0), rot=(0, 0, 0), scale=(1, 1, 1)):
         # Write uniform values and render the vertex_array
+        vertex_array.program["face_texture_ids"].write(np.array(face_ids, dtype="u4").tobytes())
         vertex_array.program["pos"].write(np.array(pos, dtype="f4"))
         vertex_array.program["scale"].write(np.array(scale, dtype="f4"))
         vertex_array.render()
@@ -257,8 +306,7 @@ class BlockRenderer(object):
         scale = tuple((t - f) / 16 for f, t in zip(element["from"], element["to"]))
 
         # Render the cube
-        self.render_vertex_array(self.cube_model, pos, rot, scale)
-
+        self.render_vertex_array(self.cube_model, [0, 1, 2, 3, 4, 5], pos=pos, rot=rot, scale=scale)
 
     def render_model(self, data: dict, rotation_x_axis, rotation_y_axis, uvlock):
         """
