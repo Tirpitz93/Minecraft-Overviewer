@@ -6,6 +6,7 @@ uniform vec3 scale;
 uniform uint face_texture_ids[6];
 uniform vec4 face_uvs[6];
 uniform vec2 model_rot;
+uniform bool uvlock;
 //uniform vec3 dir_light;
 in vec3 in_vert;
 in vec3 in_normal;
@@ -16,7 +17,6 @@ out vec4 color;
 //out float lum;
 
 void main() {
-    texCoord = vec3(in_texcoord_0 * face_uvs[in_faceid].xy + (1-in_texcoord_0) * face_uvs[in_faceid].zw + vec2(0, 0.0001) * in_normal.xy, face_texture_ids[in_faceid]);
     //color = vec4(0.0001 * texCoordV.x, in_faceid * 0.125, 0, 1);
     // face_texture_ids[in_faceid] * 0.124
 
@@ -39,6 +39,19 @@ void main() {
     model_rot_matrix[3] = vec4(0.0, 0.0, 0.0, 1.0);
 
     //gl_Position = Mvp * x_rot_matrix * y_rot_matrix * (scale_mat * vec4(in_vert, 1.0) + vec4(pos, 0.0));
-    gl_Position = Mvp * model_rot_matrix * (vec4(in_vert * scale, 1.0) + vec4(pos, 0.0));
+    vec4 pos_in_block = model_rot_matrix * (vec4(in_vert * scale, 1.0) + vec4(pos, 0.0));
+    gl_Position = Mvp * pos_in_block;
 
+    if (uvlock) {
+        vec4 rot_normals = normalize(model_rot_matrix * vec4(in_normal, 0.0));
+        texCoord = vec3(
+            vec2(0.5 + pos_in_block.x, -pos_in_block.y) * abs(rot_normals.z) +
+            vec2(0.5 - pos_in_block.z, pos_in_block.y) * rot_normals.x +
+            vec2(0.5 + pos_in_block.x, pos_in_block.z) * rot_normals.y,
+            face_texture_ids[in_faceid]);
+    }
+    else {
+        vec2 uv = in_texcoord_0 * face_uvs[in_faceid].xy + (1-in_texcoord_0) * face_uvs[in_faceid].zw;
+        texCoord = vec3(uv, face_texture_ids[in_faceid]);
+    }
 }

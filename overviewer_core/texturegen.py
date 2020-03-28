@@ -1,3 +1,4 @@
+import ctypes
 import os
 import typing
 from collections import defaultdict
@@ -290,11 +291,12 @@ class BlockRenderer(object):
     # Render methods
     ################################################################
     def render_vertex_array(self, vertex_array: mgl.VertexArray, face_texture_ids: list, face_uvs: list, *,
-                            pos=(0, 0, 0), model_rot=(0, 0, 0), scale=(1, 1, 1)):
+                            pos=(0, 0, 0), model_rot=(0, 0, 0), scale=(1, 1, 1), uvlock=False):
         # Write uniform values and render the vertex_array
         vertex_array.program["face_texture_ids"].write(np.array(face_texture_ids, dtype="u4").tobytes())
         vertex_array.program["face_uvs"].write(np.array(face_uvs, dtype="f4").tobytes())
         vertex_array.program["model_rot"].write(np.array(model_rot, dtype="f4").tobytes())
+        vertex_array.program["uvlock"].write(ctypes.c_int32(1 if uvlock else 0))
         vertex_array.program["pos"].write(np.array(pos, dtype="f4"))
         vertex_array.program["scale"].write(np.array(scale, dtype="f4"))
         vertex_array.render()
@@ -317,7 +319,10 @@ class BlockRenderer(object):
         ]
 
         # Render the cube
-        self.render_vertex_array(self.cube_model, face_texture_ids, face_uvs, pos=pos, model_rot=model_rot, scale=scale)
+        self.render_vertex_array(
+            self.cube_model, face_texture_ids, face_uvs,
+            pos=pos, model_rot=model_rot, scale=scale, uvlock=uvlock
+        )
 
     def render_model(self, data: dict, rotation_x_axis, rotation_y_axis, uvlock):
         """
