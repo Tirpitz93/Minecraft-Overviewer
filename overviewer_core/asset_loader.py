@@ -29,14 +29,12 @@ class AssetLoader(object):
         self.texturepath = texturepath
         self.jars = OrderedDict()
 
-
     def load_file(textures, path: str, name: str, ext: str):
         if ":" in name:
             return textures.find_file("{0}/{1}{2}".format(path, name.split(":")[1], ext), verbose=False)
 
         else:
             return textures.find_file("{0}/{1}{2}".format(path, name, ext), verbose=False)
-
 
     def walk_assets(self, path: str, filter: r"", ignore_unsupported_blocks=True):
         """Walk Assets directory in order of precedence in order to find all blocks"""

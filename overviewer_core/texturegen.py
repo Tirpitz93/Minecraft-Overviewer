@@ -1,4 +1,5 @@
 import json
+import os
 from collections import defaultdict
 from functools import lru_cache
 
@@ -6,7 +7,7 @@ import moderngl as mgl
 import numpy as np
 from math import sin, cos, tan, asin, pi
 
-
+from overviewer_core.util import get_program_path
 from PIL import Image
 import logging
 
@@ -63,7 +64,7 @@ def load_obj(ctx, render_program, path):
     raw_faces = []
 
     # Read data from the file and store it into the arrays above
-    with open(path, "r") as fp:
+    with open(os.path.join(get_program_path(),path), "r") as fp:
         for line in fp.readlines():
             line = line.strip()
             if line[0] == '#':
@@ -112,7 +113,7 @@ class BlockRenderer(object):
     # Storage for finding the data value
     data_map = defaultdict(list)
 
-    def __init__(self, textures, *, block_list=BLOCK_LIST, start_block_id: int=1, resolution: int=24,
+    def __init__(self, textures, *, block_list=None, start_block_id: int=1, resolution: int=24,
                  vertex_shader: str="overviewer_core/rendering/default.vert",
                  fragment_shader: str="overviewer_core/rendering/default.frag",
                  projection_matrix=None):
@@ -133,18 +134,25 @@ class BlockRenderer(object):
 
     def setup_rendering(self, vertex_shader, fragment_shader, projection_matrix=None):
         # Read shader source-code
-        with open(vertex_shader) as fp:
+
+        with open(os.path.join(get_program_path(),vertex_shader)) as fp:
             vertex_shader_src = fp.read()
-        with open(fragment_shader) as fp:
+        with open(os.path.join(get_program_path(),fragment_shader)) as fp:
             fragment_shader_src = fp.read()
 
         # Setup for rendering
-        ctx = mgl.create_context(
-            standalone=True,
-            backend='egl',
-            libgl='libGL.so.1',
-            libegl='libEGL.so.1',
-        )
+        try:
+            ctx = mgl.create_context(
+                standalone=True,
+                backend='egl',
+                libgl='libGL.so.1',
+                libegl='libEGL.so.1',
+            )
+        except ImportError:
+            ctx = mgl.create_context(
+                standalone=True,
+            )
+
         # DEPTH_TEST to calculate which face is visible, CULL_FACE to hide the backside of each face
         ctx.enable(mgl.DEPTH_TEST | mgl.CULL_FACE | mgl.BLEND)
         # Create a framebuffer to render into
@@ -162,7 +170,7 @@ class BlockRenderer(object):
 
         # Load and use a texture
         # TODO: Replace this by a Texturemap and adjust the shaders
-        img = self.load_img("block/oak_planks")
+        img = self.assetLoader.load_img("block/oak_planks")
         texture = ctx.texture(img.size, 4, img.tobytes())
         texture.filter = (mgl.NEAREST, mgl.NEAREST)     # Use the nearest pixel instead of lineary interpolating
         texture.use()
