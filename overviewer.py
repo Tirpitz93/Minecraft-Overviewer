@@ -17,10 +17,13 @@
 
 from __future__ import print_function
 
+import datetime
 import platform
 import sys
 
 # quick version check
+import timeit
+
 if sys.version_info[0] == 2 or (sys.version_info[0] == 3 and sys.version_info[1] < 4):
     print("Sorry, the Overviewer requires at least Python 3.4 to run.")
     sys.exit(1)
@@ -47,7 +50,6 @@ from overviewer_core import gen_tileset
 helptext = """
 %(prog)s [--rendermodes=...] [options] <World> <Output Dir>
 %(prog)s --config=<config file> [options]"""
-
 
 def main():
     # bootstrap the logger with defaults
@@ -655,10 +657,13 @@ def list_worlds():
 
 if __name__ == "__main__":
     multiprocessing.freeze_support()
+
     try:
+        _time_start = datetime.datetime.now()
         ret = main()
+        print((datetime.datetime.now()- _time_start))
         util.nice_exit(ret)
-    except textures.TextureException as e:
+    except textures.AssetLoaderException as e:
         # this isn't a "bug", so don't print scary traceback
         logging.error(str(e))
 

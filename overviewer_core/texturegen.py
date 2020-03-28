@@ -1,14 +1,11 @@
-import os
 import json
-import re
-import zipfile
 from collections import defaultdict
 from functools import lru_cache
-from io import BytesIO
-from pprint import pprint
 
 from PIL import Image
 import logging
+
+from .asset_loader import AssetLoader
 
 START_BLOCK_ID = 20000
 # BLOCK_LIST = [
@@ -301,167 +298,37 @@ logger = logging.getLogger(__name__)
 # Main Code for Block Rendering
 ################################################################
 class BlockRenderer(object):
-    BLOCKSTATES_DIR = "assets/minecraft/blockstates"
-    MODELS_DIR = "assets/minecraft/models"
-    TEXTURES_DIR = "assets/minecraft/textures"
+
     data_map = defaultdict(list)
 
     def __init__(self, textures, *, block_list:list=None, start_block_id=1):
         self.textures = textures
+        self.assetLoader = AssetLoader(textures.find_file_local_path)
         self.start_block_id = start_block_id
         if block_list is None:
-            self.block_list = self.walk_assets(self.BLOCKSTATES_DIR,
-                                                 r".json")
+            self.block_list = self.assetLoader.walk_assets(self.assetLoader.BLOCKSTATES_DIR, r".json")
         else: self.block_list = block_list
 
     ################################################################
     # Loading files
     ################################################################
-    def load_json(self, name: str, directory: str) -> dict:
-        # fp = self.textures.find_file("%s/%s.json" % (directory, name), "r")
-        logger.debug(directory)
-        logger.debug(name)
-        # with...
-        with self.load_file(directory, name, ".json") as f:
-            return json.load(f)
-        # finally:
-        #     fp.close()
-        # return data
-
-    def load_blockstates(self, name: str) -> dict:
-        return self.load_json(name, self.BLOCKSTATES_DIR)
-
-    def load_file(self, path:str, name:str, ext:str):
-        if ":" in name:
-            return self.textures.find_file("{0}/{1}{2}".format(path,name.split(":")[1],ext), verbose=False)
-
-        else:
-            return self.textures.find_file("{0}/{1}{2}".format(path,name,ext), verbose=False)
-
-
-    def walk_assets(self, path:str, filter:r"", ignore_unsupported_blocks=True):
-        """Walk Assets directory in order of precedence in order to find all blocks"""
-        #todo: test
-        _ret = set()
-        if self.textures.find_file_local_path:
-            if (self.textures.find_file_local_path not in self.textures.jars
-                    and os.path.isfile(self.textures.find_file_local_path)):
-                # Must be a resource pack. Look for the requested file within
-                # it.
-
-                pack = zipfile.ZipFile(self.textures.find_file_local_path)
-                # pack.getinfo() will raise KeyError if the file is
-                # not found.
-                # pprint(pack.infolist())
-                for i in pack.infolist():
-                    if path in i.filename:
-
-                        # pack.getinfo(path)
-                        # logging.debug("Found %s in '%s'", path,
-                        #                          self.textures.find_file_local_path)
-                        self.textures.jars[self.textures.find_file_local_path] = pack
-                        # ok cool now move this to the start so we pick it first
-                        self.textures.jars.move_to_end(self.textures.find_file_local_path, last=False)
-                    # return pack.open(path)
-
-            elif os.path.isdir(self.textures.find_file_local_path):
-                full_path = os.path.join(self.textures.find_file_local_path, path)
-
-                logger.debug(path)
-                for root, dir, files in os.walk(self.textures.find_file_local_path+"/"+path):
-                    logger.debug(files)
-                    for fn in files:
-                        # logger.debug(os.path.join(root,files))
-                        # logger.debug(filter)
-                        # logger.debug(fn)
-                        if re.search(filter,str(fn)):
-                            _ret.add(os.path.splitext(fn)[0])
-
-                logger.debug(_ret)
-                return _ret
-                    # return open(full_path, mode)
-
-        if len(self.textures.jars) > 0:
-            # optimize: most likely can be sped up significantly
-            for jarpath in self.textures.jars:
-                try:
-                    jar = self.textures.jars[jarpath]
-                    infolist = jar.infolist()
-                    for i in infolist:
-                        # logging.info(i)
-                        if bool(re.search(filter, i.filename)) & (path in i.filename):
-                            _ret.add(os.path.splitext(os.path.split(i.filename)[1])[0])
-                    logging.debug("Found (cached) %s in '%s'", path,
-                                             jarpath)
-                    # return jar.open(filename)
-                except (KeyError, IOError) as e:
-                    pass
-        # pprint(_ret)
-        return _ret
-
-
-
-
-            
-
-
-
-    def load_model(self, name: str) -> dict:
-        logger.debug(name)
-        return self.load_json(name, self.MODELS_DIR)
-        # if ":" in name:
-        #     return self.load_json(name[name.find(":")+1:], self.MODELS_DIR)
-        # else:
-        #     return self.load_json(name, self.MODELS_DIR)
-
 
 
     ################################################################
     # Model file parsing
     ################################################################
-    @staticmethod
-    def combine_textures_fields(textures_field: dict, parent_textures_field: dict) -> dict:
-        return {
-            **{
-                key: textures_field.get(value[1:], value) if value[0] == '#' else value
-                for key, value in parent_textures_field.items()
-            },
-            **textures_field
-        }
 
-    def load_and_combine_model(self, name):
-        data = self.load_model(name)
-        if "parent" in data:
-            # Load the JSON from the parent
-            parent_data = self.load_and_combine_model(data["parent"])
-            elements_field = data.get("elements", parent_data.get("elements"))
-            textures_field = self.combine_textures_fields(data.get("textures", {}), parent_data.get("textures", {}))
-        else:
-            elements_field = data.get("elements")
-            textures_field = data.get("textures", {})
 
-        return {
-            "textures": textures_field,
-            "elements": elements_field,
-        }
 
     def get_max_nbt_count(self, name: str) -> int:
-        data = self.load_blockstates(name)
+        data = self.assetLoader.load_blockstates(name)
         return len(data.get("variants", []))
 
     ################################################################
     # Render methods
     ################################################################
-    @lru_cache
-    def load_img(self, texture_name):
-        with self.load_file(self.TEXTURES_DIR, texture_name, ".png") as f:
-            buffer =  Image.open(f)
-            # buffer = BytesIO(fileobj.read())
-            h, w =buffer.size #get images size
-            if h != w:# check image is square if not (for example due to animated texture) crop shorter side
-                buffer = buffer.crop((0,0,min(h,w),min(h,w)))
-            texture = buffer.convert("RGBA")
-            return texture
+
+
     def render_single_cube(self, part, textures, rotation_x_axis, rotation_y_axis):
         """
         Limitations:
@@ -477,7 +344,7 @@ class BlockRenderer(object):
             texture_name = textures[definition["texture"][1:]]
 
 
-            texture = self.load_img(texture_name)
+            texture = self.assetLoader.load_img(texture_name)
 
             if "rotation" in definition:
                 texture = texture.rotate(-definition["rotation"])
@@ -574,7 +441,7 @@ class BlockRenderer(object):
     def render_blockstate_entry(self, data: dict) -> Image:
         # model, x, y, uvlock, weight
         return self.render_model(
-            data=self.load_and_combine_model(data["model"]),
+            data=self.assetLoader.load_and_combine_model(data["model"]),
             rotation_x_axis=data.get("x", 0),  # Increments of 90°
             rotation_y_axis=data.get("y", 0),  # Increments of 90°
             uvlock=data.get("uvlock", False)
@@ -628,7 +495,7 @@ class BlockRenderer(object):
         for block_index, block_name in enumerate(name_list):
             try:
                 for nbt_index, (nbt_condition, variants) in enumerate(
-                        self.render_blockstates(self.load_blockstates(name=block_name))
+                        self.render_blockstates(self.assetLoader.load_blockstates(name=block_name))
                 ):
                     yield block_index, block_name, nbt_index, nbt_condition, variants
             except NotImplementedError as e:
@@ -639,7 +506,7 @@ class BlockRenderer(object):
         # TODO: This method is currently NOT working because os.walk can't be used inside a jar file
         #todo, can this not be done as a yield iterator?
         logger.debug("iter_all_blocks")
-        return self.iter_blocks(sorted(self.walk_assets(self.BLOCKSTATES_DIR, r".json")))
+        return self.iter_blocks(sorted(self.assetLoader.walk_assets(self.assetLoader.BLOCKSTATES_DIR, r".json")))
 
     def get_max_size(self) -> (int, int):
         blockid_count = len(list(self.block_list))
