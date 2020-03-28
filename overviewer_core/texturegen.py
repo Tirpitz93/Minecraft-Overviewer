@@ -137,7 +137,7 @@ def load_obj(ctx, render_program, path):
 class BlockRenderer(object):
     # DEFAULT_LIGHT_VECTOR = (-0.9, 1, 0.8)
     DEFAULT_LIGHT_VECTOR = (-.8, 1, .7)
-
+    
     # Storage for finding the data value
     data_map = defaultdict(list)
 
@@ -165,7 +165,7 @@ class BlockRenderer(object):
     def setup_rendering(self, vertex_shader, fragment_shader, projection_matrix=None,
                         light_vector=DEFAULT_LIGHT_VECTOR):
         # Read shader source-code
-        
+
         with open(os.path.join(get_program_path(), vertex_shader)) as fp:
             vertex_shader_src = fp.read()
         with open(os.path.join(get_program_path(), fragment_shader)) as fp:
@@ -238,7 +238,6 @@ class BlockRenderer(object):
         # Rotation matricies from Wikipedia: https://en.wikipedia.org/wiki/Rotation_matrix
         # Alpha values from Wikipedia: https://en.wikipedia.org/wiki/Isometric_projection#Mathematics
         alpha = asin(tan(pi / 6))
-        print(alpha)
         s = sin(alpha)
         c = cos(alpha)
         rot_x = np.array([
@@ -295,7 +294,8 @@ class BlockRenderer(object):
     # Render methods
     ################################################################
     def render_vertex_array(self, vertex_array: mgl.VertexArray, face_texture_ids: list, face_uvs: list, *,
-                            pos=(0, 0, 0), model_rot=(0, 0, 0), scale=(1, 1, 1), uvlock=False):
+                            pos=(0, 0, 0), model_rot=(0, 0, 0), scale=(1, 1, 1), uvlock=False,
+                            rotation_origin=(0, 0, 0), rotation_axis=(1, 0, 0), rotation_angle=0):
         # Write uniform values and render the vertex_array
         vertex_array.program["face_texture_ids"].write(np.array(face_texture_ids, dtype="u4").tobytes())
         vertex_array.program["face_uvs"].write(np.array(face_uvs, dtype="f4").tobytes())
@@ -303,12 +303,15 @@ class BlockRenderer(object):
         vertex_array.program["uvlock"].write(ctypes.c_int32(1 if uvlock else 0))
         vertex_array.program["pos"].write(np.array(pos, dtype="f4"))
         vertex_array.program["scale"].write(np.array(scale, dtype="f4"))
+        vertex_array.program["rotation_angle"].write(ctypes.c_float(rotation_angle))
+        vertex_array.program["rotation_origin"].write(np.array(rotation_origin, dtype="f4").tobytes())
+        vertex_array.program["rotation_axis"].write(np.array(rotation_axis, dtype="f4").tobytes())
         vertex_array.render()
 
     def render_element(self, element, texture_variables: dict, rotation_x_axis, rotation_y_axis, uvlock):
         # Convert the two cube corners into postion, and scale
         pos = tuple((t + f) / 32 - .5 for f, t in zip(element["from"], element["to"]))
-        model_rot = (rotation_x_axis / 180 * pi, rotation_y_axis / 180 * pi)     # Not implemented yet
+        model_rot = (rotation_x_axis * pi / 180, rotation_y_axis * pi / 180)     # Not implemented yet
         scale = tuple((t - f) / 16 for f, t in zip(element["from"], element["to"]))
         face_texture_ids = [
             self.get_texture_index(texture_variables[element["faces"][face_name]["texture"][1:]])
@@ -321,11 +324,25 @@ class BlockRenderer(object):
             for face_name in ["north", "east", "south", "west", "up", "down"]
             for value in element["faces"].get(face_name, {}).get("uv", (0, 0, 16, 16))
         ]
+        _rotation = element.get("rotation")
+        axis_mapping = {
+            'x': (1, 0, 0),
+            'y': (0, 1, 0),
+            'z': (0, 0, 1),
+        }
+        if _rotation is not None:
+            rotation_kwargs = {
+                "rotation_origin": tuple(x / 16 - 0.5 for x in _rotation["origin"]),
+                "rotation_axis": axis_mapping[_rotation["axis"]],
+                "rotation_angle": _rotation["angle"] * pi / 180,
+            }
+        else:
+            rotation_kwargs = {}
 
         # Render the cube
         self.render_vertex_array(
             self.cube_model, face_texture_ids, face_uvs,
-            pos=pos, model_rot=model_rot, scale=scale, uvlock=uvlock
+            pos=pos, model_rot=model_rot, scale=scale, uvlock=uvlock, **rotation_kwargs
         )
 
     def render_model(self, data: dict, rotation_x_axis, rotation_y_axis, uvlock):
@@ -350,12 +367,8 @@ class BlockRenderer(object):
         # Check if the blocks is currently supported
         for part in data["elements"]:
             if "rotation" in part:
-                raise NotImplementedError("Rotated Elements are not supported")
-
-            for face_name, definition in part["faces"].items():
-                if "uv" in definition and definition["uv"] != [0, 0, 16, 16]:
-                    # raise NotImplementedError("Only elements with UV [0, 0, 16, 16] are supported")
-                    pass
+                # raise NotImplementedError("Rotated Elements are not supported")
+                pass
 
         # Clear the renderbuffer to start a new image
         self.ctx.clear()
