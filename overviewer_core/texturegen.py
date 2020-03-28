@@ -238,6 +238,7 @@ class BlockRenderer(object):
         # Rotation matricies from Wikipedia: https://en.wikipedia.org/wiki/Rotation_matrix
         # Alpha values from Wikipedia: https://en.wikipedia.org/wiki/Isometric_projection#Mathematics
         alpha = asin(tan(pi / 6))
+        alpha = 0
         s = sin(alpha)
         c = cos(alpha)
         rot_x = np.array([
@@ -248,6 +249,7 @@ class BlockRenderer(object):
         ])
 
         alpha = pi / 4
+        alpha = 0
         s = sin(alpha)
         c = cos(alpha)
         rot_y = np.array([
@@ -277,11 +279,12 @@ class BlockRenderer(object):
             self.assetLoader.load_img("block/dirt"),
             self.assetLoader.load_img("block/melon_top"),
             self.assetLoader.load_img("block/white_wool"),
+            self.assetLoader.load_img("block/oak_sapling"),
         ]
 
     def get_texture_index(self, name) -> int:
         # TODO: Implement this function
-        return 2
+        return 6
 
     ################################################################
     # Model file parsing
@@ -295,7 +298,8 @@ class BlockRenderer(object):
     ################################################################
     def render_vertex_array(self, vertex_array: mgl.VertexArray, face_texture_ids: list, face_uvs: list, *,
                             pos=(0, 0, 0), model_rot=(0, 0, 0), scale=(1, 1, 1), uvlock=False,
-                            rotation_origin=(0, 0, 0), rotation_axis=(1, 0, 0), rotation_angle=0):
+                            rotation_origin=(0, 0, 0), rotation_axis=(1, 0, 0), rotation_angle=0,
+                            rotation_rescale=False):
         # Write uniform values and render the vertex_array
         vertex_array.program["face_texture_ids"].write(np.array(face_texture_ids, dtype="u4").tobytes())
         vertex_array.program["face_uvs"].write(np.array(face_uvs, dtype="f4").tobytes())
@@ -306,6 +310,7 @@ class BlockRenderer(object):
         vertex_array.program["rotation_angle"].write(ctypes.c_float(rotation_angle))
         vertex_array.program["rotation_origin"].write(np.array(rotation_origin, dtype="f4").tobytes())
         vertex_array.program["rotation_axis"].write(np.array(rotation_axis, dtype="f4").tobytes())
+        vertex_array.program["rotation_rescale"].write(ctypes.c_int32(1 if rotation_rescale else 0))
         vertex_array.render()
 
     def render_element(self, element, texture_variables: dict, rotation_x_axis, rotation_y_axis, uvlock):
@@ -335,6 +340,7 @@ class BlockRenderer(object):
                 "rotation_origin": tuple(x / 16 - 0.5 for x in _rotation["origin"]),
                 "rotation_axis": axis_mapping[_rotation["axis"]],
                 "rotation_angle": _rotation["angle"] * pi / 180,
+                "rotation_rescale": _rotation.get("rescale", False),
             }
         else:
             rotation_kwargs = {}

@@ -14,6 +14,7 @@ uniform bool uvlock;
 uniform vec3 rotation_origin;
 uniform vec3 rotation_axis;
 uniform float rotation_angle;
+uniform bool rotation_rescale;
 
 // Values for each vertex
 in vec3 in_vert;
@@ -62,9 +63,16 @@ void main() {
     rot_matrix[2][1] = rotation_axis.y * rotation_axis.z * (1 - cos(rotation_angle)) - rotation_axis.x * sin(rotation_angle);
     rot_matrix[2][2] = cos(rotation_angle) + rotation_axis.z * rotation_axis.z * (1 - cos(rotation_angle));
 
+    // Rescale option
+    vec3 real_scale;
+    if (rotation_rescale)
+        real_scale = scale * (rotation_axis + (1-rotation_axis) / sin(rotation_angle));
+    else
+        real_scale = scale;
+
     // Apply Transform
     vec4 pos_in_block = model_rot_matrix * (vec4(
-        rot_matrix * ((in_vert * scale) - rotation_origin) + rotation_origin + pos,
+        rot_matrix * ((in_vert * real_scale) - rotation_origin) + rotation_origin + pos,
         1.0)
     );
     gl_Position = Mvp * pos_in_block;
