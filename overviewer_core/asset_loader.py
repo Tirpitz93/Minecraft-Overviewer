@@ -16,15 +16,19 @@ from overviewer_core import util
 from functools import lru_cache
 logger = logging.getLogger(__name__)
 
+
 class AssetLoaderException(Exception):
     "To be thrown when a texture is not found."
     pass
+
+
 class AssetLoader(object):
     """Object manages all tasks related to loading files and config data from texturepacks and jar files
     """
     BLOCKSTATES_DIR = "assets/minecraft/blockstates"
     MODELS_DIR = "assets/minecraft/models"
     TEXTURES_DIR = "assets/minecraft/textures"
+
     def __init__(self, texturepath):
         self.texturepath = texturepath
         self.jars = OrderedDict()
@@ -96,7 +100,7 @@ class AssetLoader(object):
         # pprint(_ret)
         return _ret
 
-    @lru_cache
+    @lru_cache()
     def load_image(self, filename):
         """Returns an image object"""
 
@@ -290,7 +294,7 @@ class AssetLoader(object):
 
         raise AssetLoaderException("Could not find the textures while searching for '{0}'. Try specifying the 'texturepath' option in your config file.\nSet it to the path to a Minecraft Resource pack.\nAlternately, install the Minecraft client (which includes textures)\nAlso see <http://docs.overviewer.org/en/latest/running/#installing-the-textures>\n(Remember, this version of Overviewer requires a 1.15-compatible resource pack)\n(Also note that I won't automatically use snapshots; you'll have to use the texturepath option to use a snapshot jar)".format(filename))
 
-    @lru_cache
+    @lru_cache()
     def load_image_texture(self, filename):
         # Textures may be animated or in a different resolution than 16x16.
         # This method will always return a 16x16 image
@@ -306,7 +310,7 @@ class AssetLoader(object):
         # self.texture_cache[filename] = img
         return img
 
-    @lru_cache
+    @lru_cache()
     def load_img(self, texture_name):
         with self.load_file( self.TEXTURES_DIR, texture_name, ".png") as f:
             buffer =  Image.open(f)
@@ -317,7 +321,7 @@ class AssetLoader(object):
             texture = buffer.convert("RGBA")
             return texture
 
-    @lru_cache
+    @lru_cache()
     def load_and_combine_model(self, name):
         data = self.load_model(name)
         if "parent" in data:
@@ -333,7 +337,8 @@ class AssetLoader(object):
             "textures": textures_field,
             "elements": elements_field,
         }
-    @lru_cache
+
+    @lru_cache()
     def load_json(self, name: str, directory: str) -> dict:
         # fp = self.textures.find_file("%s/%s.json" % (directory, name), "r")
         logger.debug(directory)
