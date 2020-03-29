@@ -363,10 +363,8 @@ class AssetLoader(object):
 
     @staticmethod
     def combine_textures_fields(textures_field: dict, parent_textures_field: dict) -> dict:
-        return {
-            **{
-                key: textures_field.get(value[1:], value) if value[0] == '#' else value
-                for key, value in parent_textures_field.items()
-            },
-            **textures_field
-        }
+        textures_field.update({
+            key: textures_field.get(value[1:], value) if value[0] == '#' else value
+            for key, value in parent_textures_field.items()
+        })
+        return textures_field
