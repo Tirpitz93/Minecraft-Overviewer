@@ -282,7 +282,7 @@ class BlockRenderer(object):
 
     def get_texture_index(self, name) -> int:
         # TODO: Implement this function
-        return 5
+        return 2
 
     ################################################################
     # Model file parsing
@@ -372,12 +372,6 @@ class BlockRenderer(object):
         # Check if there are errors and the block can't be rendered correctly because of limitations listed above
         if data["elements"] is None or len(data["elements"]) == 0:
             raise NotImplementedError("Only blocks with 'elements' are supported.")
-
-        # Check if the blocks is currently supported
-        for part in data["elements"]:
-            if "rotation" in part:
-                # raise NotImplementedError("Rotated Elements are not supported")
-                pass
 
         # Clear the renderbuffer to start a new image
         self.ctx.clear()
