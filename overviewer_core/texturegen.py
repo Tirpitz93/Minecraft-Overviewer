@@ -238,7 +238,6 @@ class BlockRenderer(object):
         # Rotation matricies from Wikipedia: https://en.wikipedia.org/wiki/Rotation_matrix
         # Alpha values from Wikipedia: https://en.wikipedia.org/wiki/Isometric_projection#Mathematics
         alpha = asin(tan(pi / 6))
-        alpha = 0
         s = sin(alpha)
         c = cos(alpha)
         rot_x = np.array([
@@ -249,7 +248,6 @@ class BlockRenderer(object):
         ])
 
         alpha = pi / 4
-        alpha = 0
         s = sin(alpha)
         c = cos(alpha)
         rot_y = np.array([
