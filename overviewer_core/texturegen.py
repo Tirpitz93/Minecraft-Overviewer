@@ -297,10 +297,11 @@ class BlockRenderer(object):
     def render_vertex_array(self, vertex_array: mgl.VertexArray, face_texture_ids: list, face_uvs: list, *,
                             pos=(0, 0, 0), model_rot=(0, 0, 0), scale=(1, 1, 1), uvlock=False,
                             rotation_origin=(0, 0, 0), rotation_axis=(1, 0, 0), rotation_angle=0,
-                            rotation_rescale=False):
+                            rotation_rescale=False, face_rotation=[0, 0, 0, 0, 0, 0]):
         # Write uniform values and render the vertex_array
         vertex_array.program["face_texture_ids"].write(np.array(face_texture_ids, dtype="i4").tobytes())
         vertex_array.program["face_uvs"].write(np.array(face_uvs, dtype="f4").tobytes())
+        vertex_array.program["face_rotation"].write(np.array(face_rotation, dtype="f4").tobytes())
         vertex_array.program["model_rot"].write(np.array(model_rot, dtype="f4").tobytes())
         vertex_array.program["uvlock"].write(ctypes.c_int32(1 if uvlock else 0))
         vertex_array.program["pos"].write(np.array(pos, dtype="f4"))
@@ -327,6 +328,12 @@ class BlockRenderer(object):
             for face_name in ["north", "east", "south", "west", "up", "down"]
             for value in element["faces"].get(face_name, {}).get("uv", (0, 0, 16, 16))
         ]
+        face_rotation = [
+            element["faces"][face_name].get("rotation", 0) * pi / 180
+            if face_name in element["faces"]
+            else 0
+            for face_name in ["north", "east", "south", "west", "up", "down"]
+        ]
         _rotation = element.get("rotation")
         axis_mapping = {
             'x': (1, 0, 0),
@@ -345,7 +352,7 @@ class BlockRenderer(object):
 
         # Render the cube
         self.render_vertex_array(
-            self.cube_model, face_texture_ids, face_uvs,
+            self.cube_model, face_texture_ids, face_uvs, face_rotation=face_rotation,
             pos=pos, model_rot=model_rot, scale=scale, uvlock=uvlock, **rotation_kwargs
         )
 

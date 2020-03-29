@@ -9,6 +9,7 @@ uniform vec3 pos;
 uniform vec3 scale;
 uniform int face_texture_ids[6];
 uniform vec4 face_uvs[6];
+uniform float face_rotation[6];
 uniform vec2 model_rot;
 uniform bool uvlock;
 uniform vec3 rotation_origin;
@@ -97,13 +98,17 @@ void main() {
         }
         else {
             // Calculate the UVs from texcoord and the UV given by the json files
-            vec2 uv = in_texcoord_0 * face_uvs[in_faceid].xy + (1-in_texcoord_0) * face_uvs[in_faceid].zw;
+            float face_rotation_angle = face_rotation[in_faceid];
+            mat2 face_rotation_mat;
+            face_rotation_mat[0] = vec2(cos(face_rotation_angle), -sin(face_rotation_angle));
+            face_rotation_mat[1] = vec2(sin(face_rotation_angle), cos(face_rotation_angle));
+
+            vec2 rotated_texcoord_0 = face_rotation_mat * in_texcoord_0;
+            vec2 uv = rotated_texcoord_0 * face_uvs[in_faceid].xy + (1-rotated_texcoord_0) * face_uvs[in_faceid].zw;
             texCoord = vec3(uv, face_texture_ids[in_faceid]);
         }
 
         // Light
         lum = max(dot(rot_normals.xyz, dir_light), 0.0);
-
-        color = rot_normals + vec4(0.000000 * lum, 0, 0, 0);
     }
 }
