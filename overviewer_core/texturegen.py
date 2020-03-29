@@ -18,31 +18,6 @@ START_BLOCK_ID = 20000
 
 
 ################################################################
-# Constants and helper methods for the BlockRenderer
-# Placed here in order to not need self.
-################################################################
-N = "north"
-E = "east"
-S = "south"
-W = "west"
-U = "up"
-D = "down"
-
-
-def rot(image, degree):
-    if image is None:
-        return None
-    return image.rotate(degree)
-
-
-def flip(image, arg1):
-    if image is not None:
-        return image.transpose(arg1)
-    else:
-        return None
-
-
-################################################################
 # Simple function for loading .obj files
 ################################################################
 def load_obj(ctx, render_program, path):
@@ -468,4 +443,3 @@ class BlockRenderer(object):
                 logger.debug("Block found: {0} -> {1}:{2}".format(block_name, block_index, nbt_index))
                 BlockRenderer.store_nbt_as_int(block_name, nbt_condition, block_index + self.start_block_id, nbt_index)
                 yield (block_index + self.start_block_id, nbt_index), variants[0][0]
-
