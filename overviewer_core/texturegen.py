@@ -282,7 +282,7 @@ class BlockRenderer(object):
 
     def get_texture_index(self, name) -> int:
         # TODO: Implement this function
-        return 6
+        return 2
 
     ################################################################
     # Model file parsing
@@ -299,7 +299,7 @@ class BlockRenderer(object):
                             rotation_origin=(0, 0, 0), rotation_axis=(1, 0, 0), rotation_angle=0,
                             rotation_rescale=False):
         # Write uniform values and render the vertex_array
-        vertex_array.program["face_texture_ids"].write(np.array(face_texture_ids, dtype="u4").tobytes())
+        vertex_array.program["face_texture_ids"].write(np.array(face_texture_ids, dtype="i4").tobytes())
         vertex_array.program["face_uvs"].write(np.array(face_uvs, dtype="f4").tobytes())
         vertex_array.program["model_rot"].write(np.array(model_rot, dtype="f4").tobytes())
         vertex_array.program["uvlock"].write(ctypes.c_int32(1 if uvlock else 0))
@@ -319,7 +319,7 @@ class BlockRenderer(object):
         face_texture_ids = [
             self.get_texture_index(texture_variables[element["faces"][face_name]["texture"][1:]])
             if face_name in element["faces"]
-            else 0
+            else -1
             for face_name in ["north", "east", "south", "west", "up", "down"]
         ]
         face_uvs = [
