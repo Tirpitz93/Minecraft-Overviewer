@@ -318,6 +318,8 @@ class AssetLoader(object):
             h, w =buffer.size #get images size
             if h != w:# check image is square if not (for example due to animated texture) crop shorter side
                 buffer = buffer.crop((0,0,min(h,w),min(h,w)))
+            if buffer.size != (16, 16):
+                buffer = buffer.resize((16, 16), Image.BOX)
             texture = buffer.convert("RGBA")
             return texture
 

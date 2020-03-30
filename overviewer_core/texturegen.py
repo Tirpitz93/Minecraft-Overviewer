@@ -247,21 +247,35 @@ class BlockRenderer(object):
     # Finding and indexing textures
     ################################################################
     def get_all_textures(self):
-        # TODO: Implement this function
+        # TODO: Why does walk_assets sometimes return the file extension?
         # All textures have to be of size mc_texture_size*mc_texture_size
-        return [
-            self.assetLoader.load_img("block/stone"),
-            self.assetLoader.load_img("block/melon_top"),
-            self.assetLoader.load_img("block/oak_planks"),
-            self.assetLoader.load_img("block/dirt"),
-            self.assetLoader.load_img("block/melon_top"),
-            self.assetLoader.load_img("block/bubble_coral_fan"),
-            self.assetLoader.load_img("block/oak_sapling"),
+        paths = [
+            name.rsplit('.', 1)[0]
+            for name in self.assetLoader.walk_assets(self.assetLoader.TEXTURES_DIR + "/block", "")
         ]
+        self.texture_indicies = {
+            name: i
+            for i, name in enumerate(paths)
+        }
+        return [
+            self.assetLoader.load_img("block/" + name)
+            for name in paths
+        ]
+
+        # return [
+        #     self.assetLoader.load_img("block/stone"),
+        #     self.assetLoader.load_img("block/melon_top"),
+        #     self.assetLoader.load_img("block/oak_planks"),
+        #     self.assetLoader.load_img("block/dirt"),
+        #     self.assetLoader.load_img("block/melon_top"),
+        #     self.assetLoader.load_img("block/bubble_coral_fan"),
+        #     self.assetLoader.load_img("block/oak_sapling"),
+        # ]
 
     def get_texture_index(self, name) -> int:
         # TODO: Implement this function
-        return 2
+        # return 2
+        return self.texture_indicies[name.rsplit('/', 1)[1]]
 
     ################################################################
     # Model file parsing
