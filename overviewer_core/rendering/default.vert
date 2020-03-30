@@ -90,7 +90,7 @@ void main() {
         }
         else {
             // Calculate the UVs from texcoord and the UV given by the json files
-            float face_rotation_angle = -face_rotation[in_faceid];
+            float face_rotation_angle = face_rotation[in_faceid];
             mat2 face_rotation_mat;
             face_rotation_mat[0] = vec2(cos(face_rotation_angle), -sin(face_rotation_angle));
             face_rotation_mat[1] = vec2(sin(face_rotation_angle), cos(face_rotation_angle));

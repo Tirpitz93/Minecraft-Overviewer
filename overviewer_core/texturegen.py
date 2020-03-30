@@ -311,11 +311,11 @@ class BlockRenderer(object):
         # Calculate stupid default UVs if they are not given
         uv_default = {
             "north": (_to[0], 16-_to[1], _from[0], 16-_from[1]),
-            "east": (_to[2], 16-_to[1], _from[2], 16-_from[1]),
+            "east": (_from[2], 16-_to[1], _to[2], 16-_from[1]),
             "south": (_from[0], 16-_to[1], _to[0], 16-_from[1]),
             "west": (_from[2], 16-_to[1], _to[2], 16-_from[1]),
-            "up": (_from[0], _to[2], _to[0], _from[2]),
-            "down": (_from[0], _from[2], _to[0], _to[2]),
+            "up": (_from[0], _from[2], _to[0], _to[2]),
+            "down": (_to[0], _from[2], _from[0], _to[2]),
         }
 
         # Convert the two cube corners into postion, and scale
