@@ -167,6 +167,7 @@ class BlockRenderer(object):
 
         # DEPTH_TEST to calculate which face is visible, CULL_FACE to hide the backside of each face
         ctx.enable(mgl.DEPTH_TEST | mgl.CULL_FACE | mgl.BLEND)
+        # ctx.blend_func = mgl.SRC_ALPHA, mgl.ONE_MINUS_SRC_ALPHA
         # Create a framebuffer to render into
         fbo = ctx.simple_framebuffer((self.resolution, self.resolution), components=4)
         fbo.use()

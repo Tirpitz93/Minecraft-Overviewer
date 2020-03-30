@@ -8,5 +8,6 @@ out vec4 fragColor;
 
 void main() {
     fragColor = vec4(lum, lum, lum, 1.0) * vec4(texture(Textures, texCoord));
-    //fragColor = vec4(abs(color.xyz), 1 + 0.000000001 * fragColor.x);
+    if (fragColor.a < 0.001)
+        discard;
 }
