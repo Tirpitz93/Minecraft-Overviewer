@@ -306,6 +306,18 @@ class BlockRenderer(object):
         vertex_array.render()
 
     def render_element(self, element, texture_variables: dict, rotation_x_axis, rotation_y_axis, uvlock):
+        _from = element["from"]
+        _to = element["to"]
+        # Calculate stupid default UVs if they are not given
+        uv_default = {
+            "north": (_to[0], 16-_to[1], _from[0], 16-_from[1]),
+            "east": (_to[2], 16-_to[1], _from[2], 16-_from[1]),
+            "south": (_from[0], 16-_to[1], _to[0], 16-_from[1]),
+            "west": (_from[2], 16-_to[1], _to[2], 16-_from[1]),
+            "up": (_from[0], _to[2], _to[0], _from[2]),
+            "down": (_from[0], _from[2], _to[0], _to[2]),
+        }
+
         # Convert the two cube corners into postion, and scale
         pos = tuple((t + f) / 32 - .5 for f, t in zip(element["from"], element["to"]))
         model_rot = (rotation_x_axis * pi / 180, rotation_y_axis * pi / 180)     # Not implemented yet
@@ -319,7 +331,7 @@ class BlockRenderer(object):
         face_uvs = [
             value / 16
             for face_name in ["north", "east", "south", "west", "up", "down"]
-            for value in element["faces"].get(face_name, {}).get("uv", (0, 0, 16, 16))
+            for value in element["faces"].get(face_name, {}).get("uv", uv_default[face_name])
         ]
         face_rotation = [
             element["faces"][face_name].get("rotation", 0) * pi / 180
