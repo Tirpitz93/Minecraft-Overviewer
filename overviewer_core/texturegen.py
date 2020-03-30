@@ -106,6 +106,10 @@ def load_obj(ctx, render_program, path):
     )
 
 
+class NoElementDataInDefinition(Exception):
+    pass
+
+
 ################################################################
 # Main Code for Block Rendering
 ################################################################
@@ -329,52 +333,39 @@ class BlockRenderer(object):
             pos=pos, model_rot=model_rot, scale=scale, uvlock=uvlock, **rotation_kwargs
         )
 
-    def render_model(self, data: dict, rotation_x_axis, rotation_y_axis, uvlock):
-        """
-        This method is currently only using existing draw methods. Because of that only full size blocks can be created.
+    def render_model(self, settings: dict):
+        model_data = self.assetLoader.load_and_combine_model(settings["model"])
+        if "elements" not in model_data or model_data["elements"] is None:
+            raise NoElementDataInDefinition
+        for part in model_data["elements"]:
+            self.render_element(
+                element=part,
+                texture_variables=model_data["textures"],
+                rotation_x_axis=settings.get("x", 0),
+                rotation_y_axis=settings.get("y", 0),
+                uvlock=settings.get("uvlock", False),
+            )
 
-        Assumption:
-        - The bottom texture is pointing in the reverse direction of the top texture
-        Reason: models/blocks/template_glaced_terracotta.json does not rotate the top or bottom faces
-        ==> This Indicates the default rotation
-
-        Limitations:
-        - Only full blocks
-        - Rotation is not supported
-        - UV coordinates must be [0, 0, 16, 16] (can be implemented bt isn't yet)
-        - tintcolor
-        """
-        # Check if there are errors and the block can't be rendered correctly because of limitations listed above
-        if data["elements"] is None or len(data["elements"]) == 0:
-            raise NotImplementedError("Only blocks with 'elements' are supported.")
-
-        # Clear the renderbuffer to start a new image
-        self.ctx.clear()
-
-        # Render the parts in the order they are in the file.
-        # Reason: Required for correct rendering of e.g. the grass block
-        for part in data["elements"]:
-            # Render a single cube
-            self.render_element(part, data["textures"], rotation_x_axis, rotation_y_axis, uvlock)
-
+    def read_to_img(self):
         # Read the data from the framebuffer and return it as a PIL.Image
         img = Image.frombytes("RGBA", (self.resolution, self.resolution), self.fbo.read(components=4))
         return img.transpose(Image.FLIP_TOP_BOTTOM)
 
-    def render_blockstate_entry(self, data: dict) -> Image:
-        # model, x, y, uvlock, weight
-        return self.render_model(
-            data=self.assetLoader.load_and_combine_model(data["model"]),
-            rotation_x_axis=data.get("x", 0),  # Increments of 90°
-            rotation_y_axis=data.get("y", 0),  # Increments of 90°
-            uvlock=data.get("uvlock", False)
-        ), data.get("weight", 1)
+    def render_model_to_img(self, settings: dict):
+        self.ctx.clear()
+        try:
+            self.render_model(settings)
+        except NoElementDataInDefinition:
+            logger.info("No Element data found for the model {0}".format(settings.get("model")))
+            return None
+        else:
+            return self.read_to_img()
 
     def render_blockstates(self, data: dict) -> (str, []):
         if "variants" in data:
             for nbt_condition, variant in data["variants"].items():
                 yield (nbt_condition, [
-                    self.render_blockstate_entry(v)
+                    (self.render_model_to_img(v), v.get("weight", 1))
                     for v in (variant if type(variant) == list else (variant,))
                 ])
         else:
