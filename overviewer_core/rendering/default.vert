@@ -95,7 +95,7 @@ void main() {
             face_rotation_mat[0] = vec2(cos(face_rotation_angle), -sin(face_rotation_angle));
             face_rotation_mat[1] = vec2(sin(face_rotation_angle), cos(face_rotation_angle));
 
-            vec2 rotated_texcoord_0 = face_rotation_mat * in_texcoord_0;
+            vec2 rotated_texcoord_0 = face_rotation_mat * (in_texcoord_0 - 0.5) + 0.5;
             vec2 uv = rotated_texcoord_0 * face_uvs[in_faceid].xy + (1-rotated_texcoord_0) * face_uvs[in_faceid].zw;
             texCoord = vec3(uv, face_texture_ids[in_faceid]);
         }
