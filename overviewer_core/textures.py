@@ -175,34 +175,6 @@ class Textures(object):
     ##
     ## Helpers for opening textures
     ##
-    
-
-
-
-    # def load_image(self, filename):
-    #     """Returns an image object"""
-    #
-    #     try:
-    #         img = self.texture_cache[filename]
-    #         if isinstance(img, Exception):  # Did we cache an exception?
-    #             raise img                   # Okay then, raise it.
-    #         return img
-    #     except KeyError:
-    #         pass
-    #
-    #     try:
-    #         fileobj = self.find_file(filename)
-    #     except (TextureException, IOError) as e:
-    #         # We cache when our good friend find_file can't find
-    #         # a texture, so that we do not repeatedly search for it.
-    #         self.texture_cache[filename] = e
-    #         raise e
-    #     buffer = BytesIO(fileobj.read())
-    #     img = Image.open(buffer).convert("RGBA")
-    #     self.texture_cache[filename] = img
-    #     return img
-
-
 
     def load_water(self):
         """Special-case function for loading water."""
