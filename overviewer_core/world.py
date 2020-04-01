@@ -657,7 +657,6 @@ class RegionSet(object):
             'minecraft:purpur_stairs': (203, 0),
             'minecraft:purpur_slab': (205, 0),
             'minecraft:end_stone_bricks': (206, 0),
-            'minecraft:beetroots': (207, 0),
             'minecraft:grass_path': (208, 0),
             'minecraft:repeating_command_block': (210, 0),
             'minecraft:chain_command_block': (211, 0),
@@ -684,9 +683,6 @@ class RegionSet(object):
             'minecraft:green_shulker_box': (232, 0),
             'minecraft:red_shulker_box': (233, 0),
             'minecraft:black_shulker_box': (234, 0),
-
-            'minecraft:structure_block': (255, 0),
-
             'minecraft:armor_stand': (416, 0),  # not rendering
 
             # The following blocks are underwater and are not yet rendered.
@@ -1098,7 +1094,7 @@ class RegionSet(object):
             data = {'south': 1, 'north': 0, 'east': 3, 'west': 2}[p['facing']]
             if p['open'] == 'true': data |= 0x04
             if p['half'] == 'top': data |= 0x08
-        elif key in ['minecraft:beetroots', 'minecraft:melon_stem', 'minecraft:wheat',
+        elif key in ['minecraft:melon_stem', 'minecraft:wheat',
                      'minecraft:pumpkin_stem', 'minecraft:potatoes', 'minecraft:carrots']:
             data = palette_entry['Properties']['age']
         elif key == 'minecraft:lantern':
