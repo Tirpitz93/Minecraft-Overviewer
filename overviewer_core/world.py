@@ -832,7 +832,6 @@ class RegionSet(object):
             'minecraft:acacia_sapling': (11389, 0),
             'minecraft:dark_oak_sapling': (11390, 0),
             'minecraft:bamboo_sapling': (11413, 0),
-            'minecraft:scaffolding': (11414, 0),
             "minecraft:smooth_red_sandstone_stairs": (11415, 0),
             'minecraft:bamboo': (11416, 0),
             "minecraft:composter": (11417, 0),
