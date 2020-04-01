@@ -282,13 +282,6 @@ class BlockRenderer(object):
         return self.texture_indicies[name.rsplit('/', 1)[1]]
 
     ################################################################
-    # Model file parsing
-    ################################################################
-    def get_max_nbt_count(self, name: str) -> int:
-        data = self.assetLoader.load_blockstates(name)
-        return len(data.get("variants", []))
-
-    ################################################################
     # Render methods
     ################################################################
     def render_vertex_array(self, vertex_array: mgl.VertexArray, face_texture_ids: list, face_uvs: list, *,
@@ -452,11 +445,6 @@ class BlockRenderer(object):
 
        
         return self.iter_blocks(sorted(self.assetLoader.walk_assets(self.assetLoader.BLOCKSTATES_DIR, r".json")))
-
-    def get_max_size(self) -> (int, int):
-        blockid_count = len(list(self.block_list))
-        data_count = max(self.get_max_nbt_count(name) for name in list(self.block_list))
-        return blockid_count + self.start_block_id, data_count
 
     def iter_for_generate(self):
         for block_index, block_name, nbt_index, nbt_condition, variants in self.iter_all_blocks():

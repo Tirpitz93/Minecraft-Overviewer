@@ -98,7 +98,7 @@ class Textures(object):
         # we must get rid of the huge image lists, and other images
         attributes = self.__dict__.copy()
         for attr in ['blockmap', 'biome_grass_texture', 'watertexture', 'lavatexture', 'firetexture', 'portaltexture',
-                     'lightcolor', 'grasscolor', 'foliagecolor', 'watercolor', 'texture_cache']:
+                     'lightcolor', 'grasscolor', 'foliagecolor', 'watercolor', 'texture_cache', 'assetLoader']:
             try:
                 del attributes[attr]
             except KeyError:
@@ -111,6 +111,7 @@ class Textures(object):
         for attr, val in list(attrs.items()):
             setattr(self, attr, val)
         self.texture_cache = {}
+        self.assetLoader = AssetLoader(self.find_file_local_path)
         if self.generated:
             self.generate()
 
@@ -143,9 +144,6 @@ class Textures(object):
 
         # Get the maximum possible size when using automatic generation
         block_renderer = texturegen.BlockRenderer(self, start_block_id=22000)
-        auto_max_block_size, auto_max_data_size = block_renderer.get_max_size()
-        max_blockid = max(max_blockid, auto_max_block_size)
-        max_data = max(max_data, auto_max_data_size)
 
         # Create Image Array
         self.blockmap = [None] * max_blockid * max_data
