@@ -453,7 +453,7 @@ class RegionSet(object):
             'minecraft:redstone_ore': (73, 0),
             'minecraft:redstone_wall_torch': (75, 0),
             'minecraft:redstone_torch': (75, 5),
-            'minecraft:stone_button': (77, 0),
+            # 'minecraft:stone_button': (77, 0),
             'minecraft:snow': (78, 0),
             'minecraft:ice': (79, 0),
             'minecraft:snow_block': (80, 0),
@@ -550,7 +550,7 @@ class RegionSet(object):
             'minecraft:potted_bamboo': (140, 0),
             'minecraft:carrots': (141, 0),
             'minecraft:potatoes': (142, 0),
-            'minecraft:oak_button': (143, 0),
+            # 'minecraft:oak_button': (143, 0),
             'minecraft:skeleton_wall_skull': (144, 0),  # not rendering
             'minecraft:wither_skeleton_wall_skull': (144, 1),   # not rendering
             'minecraft:zombie_wall_head': (144, 2),     # not rendering
@@ -768,11 +768,11 @@ class RegionSet(object):
             'minecraft:dead_fire_coral_block': (11323, 0),
             'minecraft:dead_horn_coral_block': (11324, 0),
             'minecraft:dead_tube_coral_block': (11325, 0),
-            'minecraft:spruce_button': (11326,0),
-            'minecraft:birch_button': (11327,0),
-            'minecraft:jungle_button': (11328,0),
-            'minecraft:acacia_button': (11329,0),
-            'minecraft:dark_oak_button': (11330,0),
+            # 'minecraft:spruce_button': (11326,0),
+            # 'minecraft:birch_button': (11327,0),
+            # 'minecraft:jungle_button': (11328,0),
+            # 'minecraft:acacia_button': (11329,0),
+            # 'minecraft:dark_oak_button': (11330,0),
             'minecraft:dried_kelp_block': (11331,0),
             'minecraft:spruce_trapdoor': (11332, 0),
             'minecraft:birch_trapdoor': (11333, 0),
@@ -1037,16 +1037,16 @@ class RegionSet(object):
             data = {'south': 0, 'west': 1, 'north': 2, 'east': 3}[facing]
             if honey_level == 5:
                 data = {'south': 4, 'west': 5, 'north': 6, 'east': 7}[facing]
-        elif key.endswith('_button'):
-            facing = palette_entry['Properties']['facing']
-            face   = palette_entry['Properties']['face']
-            if face == 'ceiling':
-                block = 0
-                data = 0
-            elif face == 'wall':
-                data = {'east': 1, 'west': 2, 'south': 3, 'north': 4}[facing]
-            elif face == 'floor':
-                data = {'east': 6, 'west': 6, 'south': 5, 'north': 5}[facing]
+        # elif key.endswith('_button'):
+        #     facing = palette_entry['Properties']['facing']
+        #     face   = palette_entry['Properties']['face']
+        #     if face == 'ceiling':
+        #         block = 0
+        #         data = 0
+        #     elif face == 'wall':
+        #         data = {'east': 1, 'west': 2, 'south': 3, 'north': 4}[facing]
+        #     elif face == 'floor':
+        #         data = {'east': 6, 'west': 6, 'south': 5, 'north': 5}[facing]
         elif key == 'minecraft:nether_wart':
             data = int(palette_entry['Properties']['age'])
         elif key.endswith('shulker_box') or key.endswith('piston') or key in ['minecraft:observer', 'minecraft:dropper', 'minecraft:dispenser']:

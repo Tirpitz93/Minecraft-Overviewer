@@ -146,6 +146,7 @@ class AssetLoader(object):
         * The overviewer_core/data/textures dir
 
         """
+        verbose = False
         if verbose: logging.info("Starting search for {0}".format(filename))
 
         # A texture path was given on the command line. Search this location
@@ -343,8 +344,8 @@ class AssetLoader(object):
     @lru_cache()
     def load_json(self, name: str, directory: str) -> dict:
         # fp = self.textures.find_file("%s/%s.json" % (directory, name), "r")
-        logger.debug(directory)
-        logger.debug(name)
+        # logger.debug(directory)
+        # logger.debug(name)
         # with...
         with self.load_file(directory, name, ".json") as f:
             return json.load(f)
@@ -356,7 +357,7 @@ class AssetLoader(object):
         return self.load_json(name, self.BLOCKSTATES_DIR)
 
     def load_model(self, name: str) -> dict:
-        logger.debug(name)
+        # logger.debug(name)
         return self.load_json(name, self.MODELS_DIR)
         # if ":" in name:
         #     return self.load_json(name[name.find(":")+1:], self.MODELS_DIR)
