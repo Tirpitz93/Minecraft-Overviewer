@@ -1154,10 +1154,10 @@ class RegionSet(object):
         elif key == "minecraft:composter":
             data = palette_entry['Properties']['level']
 
-        # To ensure the auto-generated textures is used (while testing at least)
-        if _auto_blockid is not None:
-            block = _auto_blockid
-            data = _auto_data
+        # # To ensure the auto-generated textures is used (while testing at least)
+        # if _auto_blockid is not None:
+        #     block = _auto_blockid
+        #     data = _auto_data
 
         return (block, data)
 
