@@ -841,8 +841,6 @@ class RegionSet(object):
             self._blockmap['minecraft:%s_stained_glass_pane' % colors[i]] = (160, i)
             self._blockmap['minecraft:%s_banner'             % colors[i]] = (176, i) #not rendering
             self._blockmap['minecraft:%s_wall_banner'        % colors[i]] = (177, i) #not rendering
-            self._blockmap['minecraft:%s_concrete'           % colors[i]] = (251, i)
-            self._blockmap['minecraft:%s_concrete_powder'    % colors[i]] = (252, i)
 
 
     # Re-initialize upon unpickling

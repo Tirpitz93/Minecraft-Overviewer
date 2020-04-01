@@ -4861,15 +4861,3 @@ def crops(self, blockid, data):
     alpha_over(img, crop2, (6,3), crop2)
     alpha_over(img, crop3, (6,3), crop3)
     return img
-
-# Concrete
-@material(blockid=251, data=list(range(16)), solid=True)
-def concrete(self, blockid, data):
-    texture = self.assetLoader.load_image_texture("assets/minecraft/textures/block/%s_concrete.png" % color_map[data])
-    return self.build_block(texture, texture)
-
-# Concrete Powder
-@material(blockid=252, data=list(range(16)), solid=True)
-def concrete(self, blockid, data):
-    texture = self.assetLoader.load_image_texture("assets/minecraft/textures/block/%s_concrete_powder.png" % color_map[data])
-    return self.build_block(texture, texture)
