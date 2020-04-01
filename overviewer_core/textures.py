@@ -4994,9 +4994,3 @@ def beehivenest(self, blockid, data):
             return self.build_full_block(t_top, t_side, t_side, front, t_side)
         elif data == 3 or data == 7: # east
             return self.build_full_block(t_top, t_side, front, t_side, t_side)
-
-# honeycomb_block
-block(blockid=11503, top_image="assets/minecraft/textures/block/honeycomb_block.png")
-
-# honey_block
-block(blockid=11504, top_image="assets/minecraft/textures/block/honey_block_top.png", side_image="assets/minecraft/textures/block/honey_block_side.png")
