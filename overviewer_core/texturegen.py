@@ -399,7 +399,7 @@ class BlockRenderer(object):
     ################################################################
     @staticmethod
     def store_nbt_as_int(name, nbt_condition, blockid, data_value):
-        compare_set = {x.split('=')[0] for x in nbt_condition.split(',') if x != ""}
+        compare_set = {x for x in nbt_condition.split(',') if x != ""}
         BlockRenderer.data_map["minecraft:%s" % name].append((compare_set, (blockid, data_value)))
 
     @staticmethod
