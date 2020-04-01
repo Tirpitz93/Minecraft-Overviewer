@@ -154,6 +154,9 @@ class BlockRenderer(object):
         try:
             # TODO: EGL seems to need some commands first (currently manually executed)
             #  They probably must only be executed once per shell?
+            #  apt install xvfb libgles2-mesa-dev
+            #  export DISPLAY=:99.0
+            #  Xvfb :99 -screen 0 640x480x24 &
             ctx = mgl.create_context(
                 standalone=True,
                 backend='egl',
