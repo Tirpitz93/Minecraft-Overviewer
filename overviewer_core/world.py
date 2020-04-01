@@ -684,22 +684,6 @@ class RegionSet(object):
             'minecraft:green_shulker_box': (232, 0),
             'minecraft:red_shulker_box': (233, 0),
             'minecraft:black_shulker_box': (234, 0),
-            'minecraft:white_glazed_terracotta': (235, 0),
-            'minecraft:orange_glazed_terracotta': (236, 0),
-            'minecraft:magenta_glazed_terracotta': (237, 0),
-            'minecraft:light_blue_glazed_terracotta': (238, 0),
-            'minecraft:yellow_glazed_terracotta': (239, 0),
-            'minecraft:lime_glazed_terracotta': (240, 0),
-            'minecraft:pink_glazed_terracotta': (241, 0),
-            'minecraft:gray_glazed_terracotta': (242, 0),
-            'minecraft:light_gray_glazed_terracotta': (243, 0),
-            'minecraft:cyan_glazed_terracotta': (244, 0),
-            'minecraft:purple_glazed_terracotta': (245, 0),
-            'minecraft:blue_glazed_terracotta': (246, 0),
-            'minecraft:brown_glazed_terracotta': (247, 0),
-            'minecraft:green_glazed_terracotta': (248, 0),
-            'minecraft:red_glazed_terracotta': (249, 0),
-            'minecraft:black_glazed_terracotta': (250, 0),
 
             'minecraft:structure_block': (255, 0),
 
@@ -768,12 +752,6 @@ class RegionSet(object):
             'minecraft:dead_fire_coral_block': (11323, 0),
             'minecraft:dead_horn_coral_block': (11324, 0),
             'minecraft:dead_tube_coral_block': (11325, 0),
-            # 'minecraft:spruce_button': (11326,0),
-            # 'minecraft:birch_button': (11327,0),
-            # 'minecraft:jungle_button': (11328,0),
-            # 'minecraft:acacia_button': (11329,0),
-            # 'minecraft:dark_oak_button': (11330,0),
-            'minecraft:dried_kelp_block': (11331,0),
             'minecraft:spruce_trapdoor': (11332, 0),
             'minecraft:birch_trapdoor': (11333, 0),
             'minecraft:jungle_trapdoor': (11334, 0),
@@ -1068,7 +1046,7 @@ class RegionSet(object):
                if p['west'] == 'true': data = 7
                else: data = 8
             elif p['west'] == 'true': data = 4
-        elif key in ['minecraft:carved_pumpkin', 'minecraft:jack_o_lantern'] or key.endswith('glazed_terracotta'):
+        elif key in ['minecraft:carved_pumpkin', 'minecraft:jack_o_lantern']:
             facing = palette_entry['Properties']['facing']
             data = {'south': 0, 'west': 1, 'north': 2, 'east': 3}[facing]
         elif key == 'minecraft:vine':
