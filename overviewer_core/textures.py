@@ -76,7 +76,6 @@ class Textures(object):
         self.bgcolor = bgcolor
         self.rotation = northdirection
         self.find_file_local_path = texturepath
-        self.assetLoader = AssetLoader(texturepath)
         # not yet configurable
         self.texture_size = 24
         self.texture_dimensions = (self.texture_size, self.texture_size)
@@ -84,10 +83,18 @@ class Textures(object):
         # this is set in in generate()
         self.generated = False
 
-        # see load_image_texture()
-        # self.texture_cache = {}
+        # TODO: Remove this completely, currently only used to make using the old renderer easier
+        self.assetLoader = None
 
-        # once we find a jarfile that contains a texture, we cache the ZipFile object here
+        # Special textures
+        self.watertexture = None
+        self.lavatexture = None
+        self.firetexture = None
+        self.portaltexture = None
+        self.lightcolor = None
+        self.grasscolor = None
+        self.foliagecolor = None
+        self.watercolor = None
 
     
     ##
@@ -97,46 +104,47 @@ class Textures(object):
     def __getstate__(self):
         # we must get rid of the huge image lists, and other images
         attributes = self.__dict__.copy()
-        for attr in ['blockmap', 'biome_grass_texture', 'watertexture', 'lavatexture', 'firetexture', 'portaltexture',
-                     'lightcolor', 'grasscolor', 'foliagecolor', 'watercolor', 'texture_cache', 'assetLoader']:
-            try:
-                del attributes[attr]
-            except KeyError:
-                pass
-        # attributes['assetLoader']['jars'] = OrderedDict()
+        try:
+            del attributes["assetLoader"]
+        except KeyError:
+            pass
         return attributes
 
     def __setstate__(self, attrs):
         # regenerate textures, if needed
         for attr, val in list(attrs.items()):
             setattr(self, attr, val)
-        self.texture_cache = {}
-        self.assetLoader = AssetLoader(self.find_file_local_path)
-        if self.generated:
-            self.generate()
 
     ##
     ## The big one: generate()
     ##
     
     def generate(self):
-        # Make sure we have the foliage/grasscolor images available
-        try:
-            self.load_foliage_color()
-            self.load_grass_color()
-        except AssetLoaderException as e:
-            logging.error(
-                "Your system is missing either assets/minecraft/textures/colormap/foliage.png "
-                "or assets/minecraft/textures/colormap/grass.png. Either complement your "
-                "resource pack with these texture files, or install the vanilla Minecraft "
-                "client to use as a fallback.")
-            raise e
-        
+        assetLoader = AssetLoader(self.find_file_local_path)
+
         # generate biome grass mask
-        self.biome_grass_texture = self.build_block(self.assetLoader.load_image_texture(
-        "assets/minecraft/textures/block/grass_block_top.png"), self.assetLoader.load_image_texture(
-        "assets/minecraft/textures/block/grass_block_side_overlay.png"))
-        
+        self.biome_grass_texture = self.build_block(
+            assetLoader.load_image("minecraft:block/grass_block_top"),
+            assetLoader.load_image("minecraft:block/grass_block_side_overlay")
+        )
+
+        # Special textures
+        self.watertexture = assetLoader.load_image("minecraft:block/water_still")
+        self.lavatexture = assetLoader.load_image("minecraft:block/lava_still")
+        self.firetexture = (
+            assetLoader.load_image("minecraft:block/fire_0"),
+            assetLoader.load_image("minecraft:block/fire_1")
+        )
+        self.portaltexture = assetLoader.load_image("minecraft:block/nether_portal")
+        try:
+            self.lightcolor = list(assetLoader.load_image("light_normal.png").getdata())
+        except Exception:
+            logging.warning("Light color image could not be found.")
+            self.lightcolor = None
+        self.grasscolor = list(assetLoader.load_image("minecraft:colormap/grass").getdata())
+        self.foliagecolor = list(assetLoader.load_image("minecraft:colormap/foliage").getdata())
+        # self.watercolor = list(assetLoader.load_image("watercolor.png").getdata())
+
         # generate the blocks
         global blockmap_generators
         global known_blocks, used_datas
@@ -148,27 +156,15 @@ class Textures(object):
         # Create Image Array
         self.blockmap = [None] * max_blockid * max_data
 
+        self.assetLoader = assetLoader
         for (blockid, data), texgen in list(blockmap_generators.items()):
             tex = texgen(self, blockid, data)
             self.blockmap[blockid * max_data + data] = self.generate_texture_tuple(tex)
+        self.assetLoader = None
 
         for (blockid, data), img in list(block_renderer.iter_for_generate()):
             self.blockmap[blockid * max_data + data] = self.generate_texture_tuple(img)
             known_blocks.add(blockid)
-
-
-
-        if self.texture_size != 24:
-            # rescale biome grass
-            self.biome_grass_texture = self.biome_grass_texture.resize(self.texture_dimensions, Image.ANTIALIAS)
-            
-            # rescale the rest
-            for i, tex in enumerate(self.blockmap):
-                if tex is None:
-                    continue
-                block = tex[0]
-                scaled_block = block.resize(self.texture_dimensions, Image.ANTIALIAS)
-                self.blockmap[i] = self.generate_texture_tuple(scaled_block)
 
         self.generated = True
     
@@ -177,74 +173,27 @@ class Textures(object):
     ##
 
     def load_water(self):
-        """Special-case function for loading water."""
-        watertexture = getattr(self, "watertexture", None)
-        if watertexture:
-            return watertexture
-        watertexture = self.assetLoader.load_image_texture("assets/minecraft/textures/block/water_still.png")
-        self.watertexture = watertexture
-        return watertexture
+        return self.watertexture
 
     def load_lava(self):
-        """Special-case function for loading lava."""
-        lavatexture = getattr(self, "lavatexture", None)
-        if lavatexture:
-            return lavatexture
-        lavatexture = self.assetLoader.load_image_texture("assets/minecraft/textures/block/lava_still.png")
-        self.lavatexture = lavatexture
-        return lavatexture
+        return self.lavatexture
     
     def load_fire(self):
-        """Special-case function for loading fire."""
-        firetexture = getattr(self, "firetexture", None)
-        if firetexture:
-            return firetexture
-        fireNS = self.assetLoader.load_image_texture("assets/minecraft/textures/block/fire_0.png")
-        fireEW = self.assetLoader.load_image_texture("assets/minecraft/textures/block/fire_1.png")
-        firetexture = (fireNS, fireEW)
-        self.firetexture = firetexture
-        return firetexture
+        return self.firetexture
     
     def load_portal(self):
-        """Special-case function for loading portal."""
-        portaltexture = getattr(self, "portaltexture", None)
-        if portaltexture:
-            return portaltexture
-        portaltexture = self.assetLoader.load_image_texture("assets/minecraft/textures/block/nether_portal.png")
-        self.portaltexture = portaltexture
-        return portaltexture
-    
+        return self.portaltexture
+
     def load_light_color(self):
-        """Helper function to load the light color texture."""
-        if hasattr(self, "lightcolor"):
-            return self.lightcolor
-        try:
-            lightcolor = list(self.assetLoader.load_image("light_normal.png").getdata())
-        except Exception:
-            logging.warning("Light color image could not be found.")
-            lightcolor = None
-        self.lightcolor = lightcolor
-        return lightcolor
+        return self.lightcolor
     
     def load_grass_color(self):
-        """Helper function to load the grass color texture."""
-        if not hasattr(self, "grasscolor"):
-            self.grasscolor = list(self.assetLoader.load_image(
-                "assets/minecraft/textures/colormap/grass.png").getdata())
         return self.grasscolor
 
     def load_foliage_color(self):
-        """Helper function to load the foliage color texture."""
-        if not hasattr(self, "foliagecolor"):
-            self.foliagecolor = list(self.assetLoader.load_image(
-                "assets/minecraft/textures/colormap/foliage.png").getdata())
         return self.foliagecolor
 
-    #I guess "watercolor" is wrong. But I can't correct as my texture pack don't define water color.
     def load_water_color(self):
-        """Helper function to load the water color texture."""
-        if not hasattr(self, "watercolor"):
-            self.watercolor = list(self.assetLoader.load_image("watercolor.png").getdata())
         return self.watercolor
 
     def _split_terrain(self, terrain):
