@@ -299,8 +299,6 @@ class RegionSet(object):
             'minecraft:void_air': (0, 0),
             'minecraft:water': (8, 0),
             'minecraft:lava': (10, 0),
-            'minecraft:sand': (12, 0),
-            'minecraft:red_sand': (12, 1),
             'minecraft:glass': (20, 0),
             'minecraft:white_bed': (26, 0),
             'minecraft:orange_bed': (26, 0),
@@ -352,7 +350,6 @@ class RegionSet(object):
             'minecraft:mushroom_stem': (100,10),
             'minecraft:iron_bars': (101, 0),
             'minecraft:glass_pane': (102, 0),
-            'minecraft:lily_pad': (111, 0),
             'minecraft:nether_brick_fence': (113, 0),
             'minecraft:brewing_stand': (117, 0),
             'minecraft:end_portal': (119, 0),
@@ -509,12 +506,7 @@ class RegionSet(object):
         else:
             (block, data) = self._blockmap[key]
 
-        if key.endswith('gate'):
-            facing = palette_entry['Properties']['facing']
-            data = {'south': 0, 'west': 1, 'north': 2, 'east': 3}[facing]
-            if palette_entry['Properties']['open'] == 'true':
-                data += 4
-        elif key == 'minecraft:redstone_wire':
+        if key == 'minecraft:redstone_wire':
             data = palette_entry['Properties']['power']
         elif key in ('minecraft:sunflower', 'minecraft:lilac', 'minecraft:tall_grass', 'minecraft:large_fern', 'minecraft:rose_bush', 'minecraft:peony'):
             if palette_entry['Properties']['half'] == 'upper':
@@ -525,12 +517,6 @@ class RegionSet(object):
         elif key.endswith('shulker_box'):
             facing = palette_entry['Properties']['facing']
             data = {'down': 0, 'up': 1, 'north': 2, 'south': 3, 'west': 4, 'east': 5}[facing]
-        elif key == 'minecraft:quartz_pillar':
-            axis = palette_entry['Properties']['axis']
-            if axis == 'x':
-                data = 3
-            if axis == 'z':
-                data = 4
         elif key in ['minecraft:brown_mushroom_block','minecraft:red_mushroom_block']:
             p = palette_entry['Properties']
             if p['up'] == 'true': data = 5
@@ -564,11 +550,6 @@ class RegionSet(object):
             if p['west']  == 'true': data |= 2
             if p['south'] == 'true': data |= 4
             if p['east']  == 'true': data |= 8
-        elif key == 'minecraft:lantern':
-            if palette_entry['Properties']['hanging'] == 'true':
-                data = 1
-            else:
-                data = 0
         elif key == "minecraft:composter":
             data = palette_entry['Properties']['level']
 
