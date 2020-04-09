@@ -118,7 +118,7 @@ class BlockRenderer(object):
     DEFAULT_LIGHT_VECTOR = (-.8, 1, .7)
     
     # Storage for finding the data value
-    data_map = defaultdict(list)
+    _data_map = defaultdict(list)
 
     def __init__(self, textures, *, block_list=None, start_block_id: int=1, resolution: int=24,
                  vertex_shader: str="overviewer_core/rendering/default.vert",
@@ -397,14 +397,16 @@ class BlockRenderer(object):
     ################################################################
     # NBT to Data conversion
     ################################################################
-    @staticmethod
-    def store_nbt_as_int(name, nbt_condition, blockid, data_value):
+    def store_nbt_as_int(self, name, nbt_condition, blockid, data_value):
         compare_dict = {x.split("=")[0]: x.split("=")[1] for x in nbt_condition.split(',') if x != ""}
-        BlockRenderer.data_map["minecraft:%s" % name].append((compare_dict, (blockid, data_value)))
+        self._data_map["minecraft:%s" % name].append((compare_dict, (blockid, data_value)))
+
+    def get_data_map(self):
+        return self._data_map
 
     @staticmethod
-    def get_nbt_as_int(key: str, properties: dict):
-        entry = BlockRenderer.data_map.get(key)
+    def get_nbt_as_int(data_map: dict, key: str, properties: dict):
+        entry = data_map.get(key)
         if entry is None:
             return None, None
 
@@ -450,5 +452,5 @@ class BlockRenderer(object):
         for block_index, block_name, nbt_index, nbt_condition, variants in self.iter_all_blocks():
             if len(variants) >= 1:
                 logger.debug("Block found: {0} -> {1}:{2}".format(block_name, block_index, nbt_index))
-                BlockRenderer.store_nbt_as_int(block_name, nbt_condition, block_index + self.start_block_id, nbt_index)
+                self.store_nbt_as_int(block_name, nbt_condition, block_index + self.start_block_id, nbt_index)
                 yield (block_index + self.start_block_id, nbt_index), variants[0][0]

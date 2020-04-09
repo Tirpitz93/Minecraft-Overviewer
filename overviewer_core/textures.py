@@ -30,6 +30,7 @@ from . import util, texturegen
 import logging
 
 from .asset_loader import AssetLoader, AssetLoaderException
+from .texturegen import BlockRenderer
 
 logger = logging.getLogger()
 
@@ -155,7 +156,9 @@ class Textures(object):
             self.blockmap[blockid * max_data + data] = self.generate_texture_tuple(img)
             known_blocks.add(blockid)
 
-
+        # After generating the textures using block_renderer take the data_map and store it here
+        # This makes the data accessible for world.py
+        self.data_map = block_renderer.get_data_map()
 
         if self.texture_size != 24:
             # rescale biome grass
@@ -170,7 +173,10 @@ class Textures(object):
                 self.blockmap[i] = self.generate_texture_tuple(scaled_block)
 
         self.generated = True
-    
+
+    def get_nbt_as_int(self, key, properties):
+        return BlockRenderer.get_nbt_as_int(self.data_map, key, properties)
+
     ##
     ## Helpers for opening textures
     ##
