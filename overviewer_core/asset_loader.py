@@ -21,11 +21,12 @@ class objectName(object):
     r_name_from_path = re.compile("^assets[\\/]([^\\/]+)[\\/]([^\\/]+)[\\/](.*?)(?:\.[^.\\/]*)?$")
 
     def __init__(self, name: str, *, category: str="models", extention: str="json"):
+        self.name_is_path = False
         if name.startswith("assets/"):
             # Name is given as a path
             self.namespace, parsed_category, self.name = self.get_name_from_path(name)
             if parsed_category != category:
-                logger.warning("The parsed category is not the given category:", parsed_category, "!=", category)
+                logger.warning("The parsed category is not the expected category:", parsed_category, "!=", category)
         else:
             # Check if it is given as a FQDN name
             if name.count(":") == 1:
@@ -33,7 +34,13 @@ class objectName(object):
             elif name.count(":") > 1:
                 raise ValueError("Name cannot currently contain more than one ':'")
             else:
-                self.namespace, self.name = "minecraft", name
+                if '.' in name:
+                    # This check is unfortunatly needed because some files are in overviewer_core/data/textures.
+                    # They would not be found otherwise, because this code always adds assets/
+                    self.name_is_path = True
+                    self.namespace, self.name = None, name
+                else:
+                    self.namespace, self.name = "minecraft", name
 
         self.category = category
         self.extention = extention
@@ -48,10 +55,17 @@ class objectName(object):
 
     @property
     def fqdn(self):
+        if self.name_is_path:
+            logger.warning("Trying to get the FQDN of a non asset (was given as a path and could not be parsed)")
+            return self.name
+
         return "{0}:{1}/{2}".format(self.namespace, self.category, self.name)
 
     @property
     def filename(self):
+        if self.name_is_path:
+            return self.name
+
         return "assets/{namespace}/{category}/{name}.{extention}".format(
             namespace=self.namespace,
             category=self.category,

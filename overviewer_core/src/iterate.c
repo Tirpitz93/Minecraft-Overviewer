@@ -143,7 +143,7 @@ bool load_chunk(RenderState* state, int32_t x, int32_t z, uint8_t required) {
     x += state->chunkx;
     z += state->chunkz;
 
-    chunk = PyObject_CallMethod(state->regionset, "get_chunk", "ii", x, z);
+    chunk = PyObject_CallMethod(state->regionset, "get_chunk", "iiO", x, z, state->textures);
     if (chunk == NULL) {
         // An exception is already set. RegionSet.get_chunk sets
         // ChunkDoesntExist

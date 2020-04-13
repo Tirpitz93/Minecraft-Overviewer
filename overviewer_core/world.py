@@ -28,6 +28,7 @@ from . import nbt
 from . import texturegen
 from . import cache
 from .biome import reshape_biome_data
+from .textures import Textures
 
 """
 This module has routines for extracting information about available worlds
@@ -218,7 +219,8 @@ class World(object):
         if not regionset:
             return None
         try:
-            chunk = regionset.get_chunk(chunkX, chunkZ)
+            # The textures object is not needed here, because we only try to find air blocks
+            chunk = regionset.get_chunk(chunkX, chunkZ, textures=None)
         except ChunkDoesntExist:
             return (spawnX, spawnY, spawnZ)
         
@@ -495,11 +497,16 @@ class RegionSet(object):
         """
         return self.regiondir < other.regiondir
 
-    def _get_block(self, palette_entry):
+    def _get_block(self, palette_entry, textures: Textures):
         key = palette_entry['Name']
 
+        # If no textures object is given we can only find air blocks. All other blocks will get a random texture.
+        # Setting textures to None should never be used for rendering!
+        if textures is None:
+            return (0, 0) if key == "minecraft:air" else (1, 0)
+
         # Try finding the block using auto-texture-generation. If not found use the previous method
-        _auto_blockid, _auto_data = texturegen.BlockRenderer.get_nbt_as_int(key, palette_entry.get('Properties'))
+        _auto_blockid, _auto_data = textures.get_nbt_as_int(key, palette_entry.get('Properties'))
         if _auto_data is not None:
             data = _auto_data
             block = _auto_blockid
@@ -647,7 +654,7 @@ class RegionSet(object):
 
         return result
 
-    def _get_blockdata_v113(self, section, unrecognized_block_types):
+    def _get_blockdata_v113(self, section, textures, unrecognized_block_types):
         # Translate each entry in the palette to a 1.2-era (block, data) int pair.
         num_palette_entries = len(section['Palette'])
         translated_blocks = numpy.zeros((num_palette_entries,), dtype=numpy.uint16) # block IDs
@@ -655,7 +662,7 @@ class RegionSet(object):
         for i in range(num_palette_entries):
             key = section['Palette'][i]
             try:
-                translated_blocks[i], translated_data[i] = self._get_block(key)
+                translated_blocks[i], translated_data[i] = self._get_block(key, textures)
             except KeyError:
                 pass    # We already have initialised arrays with 0 (= air)
 
@@ -672,7 +679,10 @@ class RegionSet(object):
 
         return (blocks, data)
 
-    def _get_blockdata_v112(self, section):
+    def _get_blockdata_v112(self, textures, section):
+        # TODO: Either drop support for v112 or add a mapping from old IDs to the new block names
+        #  so _get_block can be used
+        raise NotImplementedError
         # Turn the Data array into a 16x16x16 matrix, same as SkyLight
         data = numpy.frombuffer(section['Data'], dtype=numpy.uint8)
         data = data.reshape((16,16,8))
@@ -703,7 +713,7 @@ class RegionSet(object):
         return (blocks, data_expanded)
 
     #@log_other_exceptions
-    def get_chunk(self, x, z):
+    def get_chunk(self, x, z, textures):
         """Returns a dictionary object representing the "Level" NBT Compound
         structure for a chunk given its x, z coordinates. The coordinates given
         are chunk coordinates. Raises ChunkDoesntExist exception if the given
@@ -836,9 +846,9 @@ class RegionSet(object):
                 section['BlockLight'] = blocklight_expanded
 
                 if 'Palette' in section:
-                    (blocks, data) = self._get_blockdata_v113(section, unrecognized_block_types)
+                    (blocks, data) = self._get_blockdata_v113(section, textures, unrecognized_block_types)
                 elif 'Data' in section:
-                    (blocks, data) = self._get_blockdata_v112(section)
+                    (blocks, data) = self._get_blockdata_v112(section, textures)
                 else:   # Special case introduced with 1.14
                     blocks = numpy.zeros((16,16,16), dtype=numpy.uint16)
                     data = numpy.zeros((16,16,16), dtype=numpy.uint8)
@@ -969,8 +979,8 @@ class RegionSetWrapper(object):
         return self._r.get_type()
     def get_biome_data(self, x, z):
         return self._r.get_biome_data(x,z)
-    def get_chunk(self, x, z):
-        return self._r.get_chunk(x,z)
+    def get_chunk(self, x, z, textures):
+        return self._r.get_chunk(x,z, textures)
     def iterate_chunks(self):
         return self._r.iterate_chunks()
     def iterate_newer_chunks(self,filemtime):
@@ -1028,9 +1038,9 @@ class RotatedRegionSet(RegionSetWrapper):
     def __setstate__(self, args):
         self.__init__(args[0], args[1])
 
-    def get_chunk(self, x, z):
+    def get_chunk(self, x, z, textures):
         x,z = self.unrotate(x,z)
-        chunk_data = dict(super(RotatedRegionSet, self).get_chunk(x,z))
+        chunk_data = dict(super(RotatedRegionSet, self).get_chunk(x,z, textures))
         newsections = []
         for section in chunk_data['Sections']:
             section = dict(section)
@@ -1079,12 +1089,12 @@ class CroppedRegionSet(RegionSetWrapper):
         self.zmin = zmin//16
         self.zmax = zmax//16
 
-    def get_chunk(self,x,z):
+    def get_chunk(self,x,z, textures):
         if (
                 self.xmin <= x <= self.xmax and
                 self.zmin <= z <= self.zmax
                 ):
-            return super(CroppedRegionSet, self).get_chunk(x,z)
+            return super(CroppedRegionSet, self).get_chunk(x,z, textures)
         else:
             raise ChunkDoesntExist("This chunk is out of the requested bounds")
 
@@ -1143,7 +1153,7 @@ class CachedRegionSet(RegionSetWrapper):
 
         self.key = s
 
-    def get_chunk(self, x, z):
+    def get_chunk(self, x, z, textures):
         key = (self.key, x, z)
         for i, cache in enumerate(self.caches):
             try:
@@ -1155,7 +1165,7 @@ class CachedRegionSet(RegionSetWrapper):
             except KeyError:
                 pass
         else:
-            retval = super(CachedRegionSet, self).get_chunk(x,z)
+            retval = super(CachedRegionSet, self).get_chunk(x,z, textures)
 
         # Now add retval to all the caches that didn't have it, all the caches
         # up to and including index i

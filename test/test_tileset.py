@@ -46,7 +46,7 @@ class FakeRegionset(object):
     def __init__(self, chunks):
         self.chunks = dict(chunks)
 
-    def get_chunk(self, x,z):
+    def get_chunk(self, x,z, textures):
         return NotImplementedError()
 
     def iterate_chunks(self):
