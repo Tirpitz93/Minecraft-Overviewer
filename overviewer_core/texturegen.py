@@ -192,6 +192,7 @@ class BlockRenderer(object):
         # libgl1-mesa-dev
         # Setup for rendering
         ctx = self.create_context()
+        logger.debug("moderngl context info: %s", str(ctx.info))
         # try:
         #     # TODO: EGL seems to need some commands first (currently manually executed)
         #     #  They probably must only be executed once per shell?
@@ -229,6 +230,10 @@ class BlockRenderer(object):
 
         # Load all textures into a single TextureArray
         # All textures have to be of size mc_texture_size*mc_texture_size
+        # TODO: This doesn't work on all systems because OpenGL 3 only supports the 3rd size parameter to be
+        #  GL_MAX_ARRAY_TEXTURE_LAYERS long, which must be higher than 256 but we have over 600 Textures resulting
+        #  in more Textures than layers. On those systems (e.g. ubuntu in virtualbox all textures are black.
+        #  Workaround: Use a Texture-atlas instead
         texture_list = self.get_all_textures()
         texture_array = ctx.texture_array(
             size=(self.mc_texture_size, self.mc_texture_size, len(texture_list)),
