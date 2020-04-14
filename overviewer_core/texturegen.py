@@ -110,6 +110,11 @@ class NoElementDataInDefinition(Exception):
     pass
 
 
+class NoContextCreated(Exception):
+    def __init__(self, exceptions):
+        self.exceptions = exceptions
+
+
 ################################################################
 # Main Code for Block Rendering
 ################################################################
@@ -141,6 +146,40 @@ class BlockRenderer(object):
             vertex_shader, fragment_shader, projection_matrix, light_vector
         )
 
+    @staticmethod
+    def create_context():
+        configurations = [
+            {
+                "standalone": True,
+            },
+            {
+                "standalone": True,
+                "backend": "egl",
+            },
+            {
+                "standalone": True,
+                "backend": "egl",
+                "libgl": "libGL.so.1",
+                "libegl": "libEGL.so.1",
+            },
+        ]
+        exceptions = []
+        for config in configurations:
+            # noinspection PyBroadException
+            try:
+                ctx = mgl.create_context(**config)
+            except Exception as e:
+                exceptions.append(e)
+                logger.debug("Could not create a moderngl context with %s" % str(config))
+            else:
+                logger.debug("Context created with %s" % str(config))
+                return ctx
+
+        logger.error("Could not create a modernGL context. Below is a list of the thrown exceptions")
+        for e in exceptions:
+            logger.error("\t%s: %s" % (str(type(e)), e))
+        raise NoContextCreated(exceptions)
+
     def setup_rendering(self, vertex_shader, fragment_shader, projection_matrix=None,
                         light_vector=DEFAULT_LIGHT_VECTOR):
         # Read shader source-code
@@ -150,23 +189,27 @@ class BlockRenderer(object):
         with open(os.path.join(get_program_path(), fragment_shader)) as fp:
             fragment_shader_src = fp.read()
 
+        # libgl1-mesa-dev
         # Setup for rendering
-        try:
-            # TODO: EGL seems to need some commands first (currently manually executed)
-            #  They probably must only be executed once per shell?
-            #  apt install xvfb libgles2-mesa-dev
-            #  export DISPLAY=:99.0
-            #  Xvfb :99 -screen 0 640x480x24 &
-            ctx = mgl.create_context(
-                standalone=True,
-                backend='egl',
-                libgl='libGL.so.1',
-                libegl='libEGL.so.1',
-            )
-        except ImportError:
-            ctx = mgl.create_context(
-                standalone=True,
-            )
+        ctx = self.create_context()
+        # try:
+        #     # TODO: EGL seems to need some commands first (currently manually executed)
+        #     #  They probably must only be executed once per shell?
+        #     #  apt install xvfb libgles2-mesa-dev
+        #     #  export DISPLAY=:99.0
+        #     #  Xvfb :99 -screen 0 640x480x24 &
+        #     ctx = mgl.create_standalone_context(
+        #         standalone=True,
+        #         # backend='egl',
+        #         # libgl='libGL.so.1',
+        #         # libegl='libEGL.so.1',
+        #     )
+        #     logger.info("EGL")
+        # except ImportError:
+        #     ctx = mgl.create_standalone_context(
+        #         standalone=True,
+        #     )
+        #     logger.info("Non EGL")
 
         # DEPTH_TEST to calculate which face is visible, CULL_FACE to hide the backside of each face
         ctx.enable(mgl.DEPTH_TEST | mgl.CULL_FACE | mgl.BLEND)
