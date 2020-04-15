@@ -16,6 +16,7 @@ uniform bool uvlock;
 uniform vec3 rotation_origin;
 uniform vec3 rotation_axis;
 uniform float rotation_angle;
+uniform int face_tintindex[6];
 
 // Values for each vertex
 in vec3 in_vert;
@@ -28,6 +29,7 @@ out vec4 color;
 out float lum;
 out vec2 uv;
 out vec2 tile_offset;
+flat out int tintindex;
 
 void main() {
     if (face_texture_ids[in_faceid] == -1)
@@ -104,5 +106,8 @@ void main() {
 
         // Light
         lum = max(dot(rot_normals.xyz, dir_light), 0.0);
+
+        // tintindex
+        tintindex = face_tintindex[in_faceid];
     }
 }

@@ -3,6 +3,7 @@ import math
 import os
 import typing
 from collections import defaultdict
+from contextlib import contextmanager
 from typing import List, Tuple
 
 import moderngl as mgl
@@ -316,10 +317,16 @@ class MGlRenderer(object):
     def clear(self):
         self.ctx.clear()
 
+    @contextmanager
+    def colortint_pass(self):
+        self.cube_model.program["is_colortint_pass"].write(ctypes.c_int32(1))
+        yield
+        self.cube_model.program["is_colortint_pass"].write(ctypes.c_int32(0))
+
     def render_cube(self, face_texture_ids: List[int], face_uvs: list, *,
                     pos=(0, 0, 0), model_rot=(0, 0, 0), scale=(1, 1, 1), uvlock=False,
                     rotation_origin=(0, 0, 0), rotation_axis=(1, 0, 0), rotation_angle=0,
-                    face_rotation=(0, 0, 0, 0, 0, 0)):
+                    face_rotation=(0, 0, 0, 0, 0, 0), face_tintindex=(0, 0, 0, 0, 0, 0)):
         """
         This method renders a cube. The result can be accessed using read_to_img
 
@@ -334,6 +341,9 @@ class MGlRenderer(object):
         :param rotation_axis: Axis around the cube is rotated
         :param rotation_angle: Angle defining how much the cube is rotated
         :param face_rotation: List of angles defining how much each face is rotated (Order: N, E, S, W, Top, Bottom)
+        :param is_colortint_pass: Flag how the fragment shader should behave. True means only faces with tintindex are
+                                  used. All other faces will be rendered black.
+        :param face_tintindex: Which faces have a textureindex (Order: N, E, S, W, Top, Bottom)
         """
         # Write uniform values and render the vertex_array
         self.cube_model.program["face_texture_ids"].write(np.array(face_texture_ids, dtype="i4").tobytes())
@@ -346,6 +356,7 @@ class MGlRenderer(object):
         self.cube_model.program["rotation_angle"].write(ctypes.c_float(rotation_angle))
         self.cube_model.program["rotation_origin"].write(np.array(rotation_origin, dtype="f4").tobytes())
         self.cube_model.program["rotation_axis"].write(np.array(rotation_axis, dtype="f4").tobytes())
+        self.cube_model.program["face_tintindex"].write(np.array(face_tintindex, dtype="i4").tobytes())
         self.cube_model.render()
 
     def read_to_img(self):
@@ -443,6 +454,10 @@ class BlockRenderer(object):
             for face_name in ["north", "east", "south", "west", "up", "down"]
             for value in element["faces"].get(face_name, {}).get("uv", uv_default[face_name])
         ]
+        face_tintindex = [
+            element["faces"].get(face_name, {}).get("tintindex", -1)
+            for face_name in ["north", "east", "south", "west", "up", "down"]
+        ]
         face_rotation = [
             element["faces"][face_name].get("rotation", 0) * pi / 180
             if face_name in element["faces"]
@@ -472,11 +487,14 @@ class BlockRenderer(object):
             model_rot=model_rot,
             scale=scale,
             uvlock=uvlock,
+            face_rotation=face_rotation,
+            face_tintindex=face_tintindex,
             **rotation_kwargs
         )
 
-    def render_model(self, settings: dict):
+    def render_model(self, settings: dict) -> bool:
         model_data = self.assetLoader.load_and_combine_model(settings["model"])
+        has_texturetint = False
         if "elements" not in model_data or model_data["elements"] is None:
             raise NoElementDataInDefinition
         for part in model_data["elements"]:
@@ -488,21 +506,40 @@ class BlockRenderer(object):
                 uvlock=settings.get("uvlock", False),
             )
 
-    def render_model_to_img(self, settings: dict):
+            print(part["faces"])
+            has_texturetint = has_texturetint or any([
+                "tintindex" in face
+                for face in part["faces"].values()
+            ])
+
+        print(has_texturetint)
+        return has_texturetint
+
+    def _render_model_to_img(self, settings: dict):
         self.renderer.clear()
+        has_texturetint = self.render_model(settings)
+        return has_texturetint, self.renderer.read_to_img()
+
+    def render_model_to_img(self, settings: dict) -> tuple:
         try:
-            self.render_model(settings)
+            has_texturetint, img = self._render_model_to_img(settings)
+            if has_texturetint:
+                logger.debug("\tCreating colortint texture")
+                with self.renderer.colortint_pass():
+                    _, tint_texture = self._render_model_to_img(settings)
+            else:
+                tint_texture = None
         except NoElementDataInDefinition:
             logger.info("No Element data found for the model {0}".format(settings.get("model")))
-            return None
+            return None, None
         else:
-            return self.renderer.read_to_img()
+            return img, tint_texture
 
-    def render_blockstates(self, data: dict) -> (str, []):
+    def render_blockstates(self, data: dict) -> (str, List[tuple]):
         if "variants" in data:
             for nbt_condition, variant in data["variants"].items():
                 yield (nbt_condition, [
-                    (self.render_model_to_img(v), v.get("weight", 1))
+                    self.render_model_to_img(v) + (v.get("weight", 1), )
                     for v in (variant if type(variant) == list else (variant,))
                 ])
         else:
@@ -566,4 +603,8 @@ class BlockRenderer(object):
             if len(variants) >= 1:
                 logger.debug("Block found: {0} -> {1}:{2}".format(block_name, block_index, nbt_index))
                 self.store_nbt_as_int(block_name, nbt_condition, block_index + self.start_block_id, nbt_index)
+                # TODO: For now only return the first variant because multiple variants is currently not supported
+                #  by overviewer.
+                # TODO: For now only return the rendered Image and not the texturetint Image because the Textures
+                #  class isn't expecting that.
                 yield (block_index + self.start_block_id, nbt_index), variants[0][0]
