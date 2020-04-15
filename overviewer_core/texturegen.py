@@ -3,6 +3,7 @@ import math
 import os
 import typing
 from collections import defaultdict
+from typing import List, Tuple
 
 import moderngl as mgl
 import numpy as np
@@ -21,90 +22,6 @@ START_BLOCK_ID = 20000
 ################################################################
 # Simple function for loading .obj files
 ################################################################
-def load_obj(ctx, render_program, path):
-    """
-    This method loads a .obj file and creates a model that can be rendered using moderngl.
-
-    Wavefont (.obj) files reference verticies, uvs and normals for each vertex with different indicies.
-    ModernGL does not support different indicies for verticies, uvs and normals.
-
-    In addition to de-referencing the verticies, uvs and normals they are combined into a single VertexBuffer.
-
-    Finally a VertexArray is created, that can be rendered using
-    return_value.render(mode=mgl.TRIANGLES)
-    """
-    # Store all verticies, uvs, normals and faces for later processing
-    raw_verticies = []
-    raw_uvs = []
-    raw_normals = []
-    raw_faces = []
-
-    # Read data from the file and store it into the arrays above
-    with open(os.path.join(get_program_path(),path), "r") as fp:
-        for line in fp.readlines():
-            line = line.strip()
-            if line[0] == '#':
-                continue
-            args = tuple(line.split(' ')[1:])
-            if line.startswith('v '):
-                raw_verticies.append(args)
-            elif line.startswith('vt '):
-                raw_uvs.append(args)
-            elif line.startswith('vn '):
-                raw_normals.append(args)
-            elif line.startswith('f '):
-                raw_faces.append(tuple(x.split('/') for x in args))
-            else:
-                pass
-
-    # Combine all arrays and do the de-referencing
-    data = np.array([
-        value
-        for face in raw_faces
-        for vertex in face
-        for value_list in [         # Each vertex consists of a position, normal and a uv
-            raw_verticies[int(vertex[0])-1],
-            raw_normals[int(vertex[2])-1],
-            raw_uvs[int(vertex[1])-1],
-        ]
-        for value in value_list     # Combine all small arrays into a single large one
-    ], dtype="f4")
-
-    # This array is used to ensure faces always have the same id in later code.
-    # This should only need to be changed if cube.obj changes
-    # The index is the normal-index from cube.obj
-    # The value is the index used later for this face
-    face_mapping = [
-        4,  # Top
-        2,  # South
-        3,  # West
-        5,  # Bottom
-        1,  # East
-        0   # North
-    ]
-
-    print(raw_faces)
-    face_indicies = np.array([
-        face_mapping[int(vertex[2])-1]
-        for face in raw_faces
-        for vertex in face
-    ], dtype="u4")
-
-    # By reshaping the array all values can be read more easily
-    # print(data.reshape((data.size // 8, 8)))
-    # print(face_indicies)
-
-    # Create a buffer containing the data
-    cube_vbo = ctx.buffer(data.tobytes())
-    cube_vbo_int = ctx.buffer(face_indicies.tobytes())
-    # Create a VertexArray bound to the buffer and the render_program
-    return ctx.vertex_array(
-        render_program,
-        [
-            (cube_vbo, "3f4 3f4 2f4", "in_vert", "in_normal", "in_texcoord_0"),
-            (cube_vbo_int, "u4", "in_faceid")
-        ]
-    )
 
 
 class NoElementDataInDefinition(Exception):
@@ -119,36 +36,73 @@ class NoContextCreated(Exception):
 ################################################################
 # Main Code for Block Rendering
 ################################################################
-class BlockRenderer(object):
+class MGlRenderer(object):
     # DEFAULT_LIGHT_VECTOR = (-0.9, 1, 0.8)
     DEFAULT_LIGHT_VECTOR = (-.8, 1, .7)
-    
-    # Storage for finding the data value
-    _data_map = defaultdict(list)
 
-    def __init__(self, textures, *, block_list=None, start_block_id: int=1, resolution: int=24,
-                 vertex_shader: str="overviewer_core/rendering/default.vert",
-                 fragment_shader: str="overviewer_core/rendering/default.frag",
-                 projection_matrix=None, mc_texture_size=16, light_vector=DEFAULT_LIGHT_VECTOR):
-        # Not direclty related to rendering
-        self.textures = textures
-        self.assetLoader = AssetLoader(textures.find_file_local_path)
-        self.start_block_id = start_block_id
-        self.mc_texture_size = mc_texture_size
-        if block_list is None:
-            self.block_list = self.assetLoader.walk_assets(self.assetLoader.BLOCKSTATES_DIR, r".json")
-        else: self.block_list = block_list
+    def __init__(self, vertex_shader: str, fragment_shader: str, projection_matrix: np.array, texture_list: iter,
+                 light_vector=DEFAULT_LIGHT_VECTOR, output_resolution=24, texture_resolution=16):
+        self.output_resolution = output_resolution
 
-        # Settings for rendering
-        self.resolution = resolution
+        # Read shader source-code
+        with open(os.path.join(get_program_path(), vertex_shader)) as fp:
+            vertex_shader_src = fp.read()
+        with open(os.path.join(get_program_path(), fragment_shader)) as fp:
+            fragment_shader_src = fp.read()
 
-        # Configure rendering
+        # Calculate the projection matrix if not given
+        if projection_matrix is None:
+            projection_matrix = self.calculate_projection_matrix()
+
+        # Setup rendering
         self.ctx, self.fbo, self.cube_model = self.setup_rendering(
-            vertex_shader, fragment_shader, projection_matrix, light_vector
+            vertex_shader_src, fragment_shader_src, texture_list, projection_matrix,
+            light_vector, output_resolution, texture_resolution
         )
 
+    def setup_rendering(self, vertex_shader_src: str, fragment_shader_src: str, texture_list: iter,
+                        projection_matrix: np.array, light_vector: tuple, output_resolution: int,
+                        texture_resolution: int):
+        # Setup for rendering
+        ctx = self._create_context()
+        logger.debug("moderngl context info: %s", str(ctx.info))
+
+        # DEPTH_TEST to calculate which face is visible, CULL_FACE to hide the backside of each face
+        ctx.enable(mgl.DEPTH_TEST | mgl.CULL_FACE | mgl.BLEND)
+        # ctx.blend_func = mgl.SRC_ALPHA, mgl.ONE_MINUS_SRC_ALPHA
+        # Create a framebuffer to render into
+        fbo = ctx.simple_framebuffer((output_resolution, output_resolution), components=4)
+        fbo.use()
+        # Compile the shaders
+        render_program = ctx.program(vertex_shader=vertex_shader_src, fragment_shader=fragment_shader_src)
+
+        # Load cube.obj to get a model to render (ArrayBuffer)
+        cube_vao = self.load_obj(ctx, render_program, "overviewer_core/rendering/cube.obj")
+
+        # Load all textures into a single TextureArray
+        # All textures have to be of size mc_texture_size*mc_texture_size
+        texture_atlas, atlas_size = self.load_textures(ctx, texture_resolution, texture_list)
+        texture_atlas.filter = mgl.NEAREST, mgl.NEAREST
+        texture_atlas.use()
+
+        # Set the "uniform" values the shaders require
+        render_program["Mvp"].write(projection_matrix.astype('f4').tobytes())
+        render_program["dir_light"].write(np.array(light_vector, dtype="f4").tobytes())
+        render_program["atlas_size"].write(ctypes.c_uint32(atlas_size))
+        render_program["tile_size"].write(ctypes.c_float(1 / atlas_size))
+
+        return ctx, fbo, cube_vao
+
+    ################################################################
+    # Static helper methods
+    ################################################################
     @staticmethod
-    def create_context():
+    def _create_context():
+        # TODO: EGL seems to need some commands first (currently manually executed)
+        #  They probably must only be executed once per shell?
+        #  apt install xvfb libgles2-mesa-dev
+        #  export DISPLAY=:99.0
+        #  Xvfb :99 -screen 0 640x480x24 &
         configurations = [
             {
                 "standalone": True,
@@ -182,6 +136,119 @@ class BlockRenderer(object):
         raise NoContextCreated(exceptions)
 
     @staticmethod
+    def load_obj(ctx, render_program, path):
+        """
+        This method loads a .obj file and creates a model that can be rendered using moderngl.
+
+        Wavefont (.obj) files reference verticies, uvs and normals for each vertex with different indicies.
+        ModernGL does not support different indicies for verticies, uvs and normals.
+
+        In addition to de-referencing the verticies, uvs and normals they are combined into a single VertexBuffer.
+
+        Finally a VertexArray is created, that can be rendered using
+        return_value.render(mode=mgl.TRIANGLES)
+        """
+        # Store all verticies, uvs, normals and faces for later processing
+        raw_verticies = []
+        raw_uvs = []
+        raw_normals = []
+        raw_faces = []
+
+        # Read data from the file and store it into the arrays above
+        with open(os.path.join(get_program_path(), path), "r") as fp:
+            for line in fp.readlines():
+                line = line.strip()
+                if line[0] == '#':
+                    continue
+                args = tuple(line.split(' ')[1:])
+                if line.startswith('v '):
+                    raw_verticies.append(args)
+                elif line.startswith('vt '):
+                    raw_uvs.append(args)
+                elif line.startswith('vn '):
+                    raw_normals.append(args)
+                elif line.startswith('f '):
+                    raw_faces.append(tuple(x.split('/') for x in args))
+                else:
+                    pass
+
+        # Combine all arrays and do the de-referencing
+        data = np.array([
+            value
+            for face in raw_faces
+            for vertex in face
+            for value_list in [  # Each vertex consists of a position, normal and a uv
+                raw_verticies[int(vertex[0]) - 1],
+                raw_normals[int(vertex[2]) - 1],
+                raw_uvs[int(vertex[1]) - 1],
+            ]
+            for value in value_list  # Combine all small arrays into a single large one
+        ], dtype="f4")
+
+        # This array is used to ensure faces always have the same id in later code.
+        # This should only need to be changed if cube.obj changes
+        # The index is the normal-index from cube.obj
+        # The value is the index used later for this face
+        face_mapping = [
+            4,  # Top
+            2,  # South
+            3,  # West
+            5,  # Bottom
+            1,  # East
+            0  # North
+        ]
+
+        print(raw_faces)
+        face_indicies = np.array([
+            face_mapping[int(vertex[2]) - 1]
+            for face in raw_faces
+            for vertex in face
+        ], dtype="u4")
+
+        # By reshaping the array all values can be read more easily
+        # print(data.reshape((data.size // 8, 8)))
+        # print(face_indicies)
+
+        # Create a buffer containing the data
+        cube_vbo = ctx.buffer(data.tobytes())
+        cube_vbo_int = ctx.buffer(face_indicies.tobytes())
+        # Create a VertexArray bound to the buffer and the render_program
+        return ctx.vertex_array(
+            render_program,
+            [
+                (cube_vbo, "3f4 3f4 2f4", "in_vert", "in_normal", "in_texcoord_0"),
+                (cube_vbo_int, "u4", "in_faceid")
+            ]
+        )
+
+    @staticmethod
+    def load_textures(ctx, tile_size, texture_list: iter):
+        # Unfortunatly we can't use a TextureArray. OpenGL 3 only supports the 3rd ize parameter to be
+        # GL_MAX_ARRAY_TEXTURE_LAYERS long, which must be higher than 256 but we have over 600 Textures resulting
+        # in more Textures than layers. On those systems (e.g. ubuntu in virtualbox all textures are black.
+        # Workaround: Use a Texture-atlas instead
+        # Calculate the (minimum) size of the atlas in sub-textures
+        atlas_size = math.ceil(math.sqrt(len(texture_list)))
+        gl_max_texture_size = ctx.info["GL_MAX_TEXTURE_SIZE"]
+        # noinspection PyTypeChecker
+        if type(gl_max_texture_size) not in (int, float):
+            logger.warning("GL_MAX_TEXTURE_SIZE is no integer: %s" % gl_max_texture_size)
+        elif tile_size * atlas_size > gl_max_texture_size:
+            logger.error(
+                "Can't create the TextureAtlas because it would be too large. "
+                "Trying to do it anyway but this will probably result in a wrong Image. %s" % str({
+                    "required_texture_size": tile_size * atlas_size,
+                    "GL_MAX_TEXTURE_SIZE": ctx.info["GL_MAX_TEXTURE_SIZE"]
+                })
+            )
+        texture_atlas = ctx.texture(
+            size=(tile_size * atlas_size, tile_size * atlas_size),
+            components=4,
+            data=MGlRenderer.create_texture_atlas(tile_size, atlas_size, texture_list).tobytes()
+        )
+        return texture_atlas, atlas_size
+
+    @staticmethod
     def create_texture_atlas(texture_size: int, atlas_size: int, texture_list: list):
         """
         This method combines a list of textures into a single image. All textures are resized to texture_size
@@ -197,93 +264,9 @@ class BlockRenderer(object):
             img.paste(tex, (x, y, x + texture_size, y + texture_size))
         return img
 
-    def setup_rendering(self, vertex_shader, fragment_shader, projection_matrix=None,
-                        light_vector=DEFAULT_LIGHT_VECTOR):
-        # Read shader source-code
-
-        with open(os.path.join(get_program_path(), vertex_shader)) as fp:
-            vertex_shader_src = fp.read()
-        with open(os.path.join(get_program_path(), fragment_shader)) as fp:
-            fragment_shader_src = fp.read()
-
-        # libgl1-mesa-dev
-        # Setup for rendering
-        ctx = self.create_context()
-        logger.debug("moderngl context info: %s", str(ctx.info))
-        # try:
-        #     # TODO: EGL seems to need some commands first (currently manually executed)
-        #     #  They probably must only be executed once per shell?
-        #     #  apt install xvfb libgles2-mesa-dev
-        #     #  export DISPLAY=:99.0
-        #     #  Xvfb :99 -screen 0 640x480x24 &
-        #     ctx = mgl.create_standalone_context(
-        #         standalone=True,
-        #         # backend='egl',
-        #         # libgl='libGL.so.1',
-        #         # libegl='libEGL.so.1',
-        #     )
-        #     logger.info("EGL")
-        # except ImportError:
-        #     ctx = mgl.create_standalone_context(
-        #         standalone=True,
-        #     )
-        #     logger.info("Non EGL")
-
-        # DEPTH_TEST to calculate which face is visible, CULL_FACE to hide the backside of each face
-        ctx.enable(mgl.DEPTH_TEST | mgl.CULL_FACE | mgl.BLEND)
-        # ctx.blend_func = mgl.SRC_ALPHA, mgl.ONE_MINUS_SRC_ALPHA
-        # Create a framebuffer to render into
-        fbo = ctx.simple_framebuffer((self.resolution, self.resolution), components=4)
-        fbo.use()
-        # Compile the shaders
-        render_program = ctx.program(vertex_shader=vertex_shader_src, fragment_shader=fragment_shader_src)
-
-        # Load cube.obj to get a model to render (ArrayBuffer)
-        cube_vao = load_obj(ctx, render_program, "overviewer_core/rendering/cube.obj")
-
-        # If no projection_matrix is given use the kind-of isometric view used by Overviewer
-        if projection_matrix is None:
-            projection_matrix = self.calculate_projection_matrix()
-
-        # Load all textures into a single TextureArray
-        # All textures have to be of size mc_texture_size*mc_texture_size
-        #
-        # Unfortunatly we can't use a TextureArray. OpenGL 3 only supports the 3rd ize parameter to be
-        # GL_MAX_ARRAY_TEXTURE_LAYERS long, which must be higher than 256 but we have over 600 Textures resulting
-        # in more Textures than layers. On those systems (e.g. ubuntu in virtualbox all textures are black.
-        # Workaround: Use a Texture-atlas instead
-        texture_list = self.get_all_textures()
-        # Calculate the (minimum) size of the atlas in sub-textures
-        atlas_size = math.ceil(math.sqrt(len(texture_list)))
-        gl_max_texture_size = ctx.info["GL_MAX_TEXTURE_SIZE"]
-        # noinspection PyTypeChecker
-        if type(gl_max_texture_size) not in (int, float):
-            logger.warning("GL_MAX_TEXTURE_SIZE is no integer: %s" % gl_max_texture_size)
-        elif self.mc_texture_size * atlas_size > gl_max_texture_size:
-            logger.error(
-                "Can't create the TextureAtlas because it would be too large. "
-                "Trying to do it anyway but this will probably result in a wrong Image. %s" % str({
-                    "required_texture_size": self.mc_texture_size * atlas_size,
-                    "GL_MAX_TEXTURE_SIZE": ctx.info["GL_MAX_TEXTURE_SIZE"]
-                })
-            )
-        texture_atlas = ctx.texture(
-            size=(self.mc_texture_size * atlas_size, self.mc_texture_size * atlas_size),
-            components=4,
-            data=self.create_texture_atlas(self.mc_texture_size, atlas_size, texture_list).tobytes()
-        )
-        render_program["atlas_size"].write(ctypes.c_uint32(atlas_size))
-        render_program["tile_size"].write(ctypes.c_float(1 / atlas_size))
-        texture_atlas.filter = mgl.NEAREST, mgl.NEAREST
-        texture_atlas.use()
-
-        # Set the "uniform" values the shaders require
-        render_program["Mvp"].write(projection_matrix.astype('f4').tobytes())
-        render_program["dir_light"].write(np.array(light_vector, dtype="f4").tobytes())
-
-        return ctx, fbo, cube_vao
-
-    def calculate_projection_matrix(self):
+    # TODO: Move this code somewhere else to allow easier selection of pre-defined projection_matricies
+    @staticmethod
+    def calculate_projection_matrix():
         # Orthographic view matrix
         top = .8165
         bot = -.8165
@@ -328,6 +311,74 @@ class BlockRenderer(object):
         return np.matmul(view_matrix, projection_matrix)
 
     ################################################################
+    # Methods for rendering
+    ################################################################
+    def clear(self):
+        self.ctx.clear()
+
+    def render_cube(self, face_texture_ids: List[int], face_uvs: list, *,
+                    pos=(0, 0, 0), model_rot=(0, 0, 0), scale=(1, 1, 1), uvlock=False,
+                    rotation_origin=(0, 0, 0), rotation_axis=(1, 0, 0), rotation_angle=0,
+                    face_rotation=(0, 0, 0, 0, 0, 0)):
+        """
+        This method renders a cube. The result can be accessed using read_to_img
+
+        :param face_texture_ids: This list contains the texture-IDs for each face (Order: N, E, S, W, Top, Bottom)
+        :param face_uvs: This list contains the UV coordinates for each face. Each entry consists of 4 integers
+                         (Order: N, E, S, W, Top, Bottom)
+        :param pos: Position of the cube in local space
+        :param model_rot: Rotation of the entire model (around (0, 0, 0))
+        :param scale: Scale of the cube
+        :param uvlock: Weather the UVs should be based on the world coordinates instead of face_uvs
+        :param rotation_origin: Origin of the cube rotation
+        :param rotation_axis: Axis around the cube is rotated
+        :param rotation_angle: Angle defining how much the cube is rotated
+        :param face_rotation: List of angles defining how much each face is rotated (Order: N, E, S, W, Top, Bottom)
+        """
+        # Write uniform values and render the vertex_array
+        self.cube_model.program["face_texture_ids"].write(np.array(face_texture_ids, dtype="i4").tobytes())
+        self.cube_model.program["face_uvs"].write(np.array(face_uvs, dtype="f4").tobytes())
+        self.cube_model.program["face_rotation"].write(np.array(face_rotation, dtype="f4").tobytes())
+        self.cube_model.program["model_rot"].write(np.array(model_rot, dtype="f4").tobytes())
+        self.cube_model.program["uvlock"].write(ctypes.c_int32(1 if uvlock else 0))
+        self.cube_model.program["pos"].write(np.array(pos, dtype="f4"))
+        self.cube_model.program["scale"].write(np.array(scale, dtype="f4"))
+        self.cube_model.program["rotation_angle"].write(ctypes.c_float(rotation_angle))
+        self.cube_model.program["rotation_origin"].write(np.array(rotation_origin, dtype="f4").tobytes())
+        self.cube_model.program["rotation_axis"].write(np.array(rotation_axis, dtype="f4").tobytes())
+        self.cube_model.render()
+
+    def read_to_img(self):
+        # Read the data from the framebuffer and return it as a PIL.Image
+        img = Image.frombytes("RGBA", (self.output_resolution, self.output_resolution), self.fbo.read(components=4))
+        return img.transpose(Image.FLIP_TOP_BOTTOM)
+
+
+class BlockRenderer(object):
+    # Storage for finding the data value
+    _data_map = defaultdict(list)
+
+    def __init__(self, textures, *, block_list=None, start_block_id: int=1,
+                 vertex_shader: str="overviewer_core/rendering/default.vert",
+                 fragment_shader: str="overviewer_core/rendering/default.frag",
+                 projection_matrix=None, output_resolution=24):
+        # Not direclty related to rendering
+        # TODO: Change the textures reference to a texturepath
+        self.textures = textures
+        self.assetLoader = AssetLoader(textures.find_file_local_path)
+        self.start_block_id = start_block_id
+        # TODO: Remove block_list
+        if block_list is None:
+            self.block_list = self.assetLoader.walk_assets(self.assetLoader.BLOCKSTATES_DIR, r".json")
+        else:
+            self.block_list = block_list
+
+        # Configure rendering
+        texture_list = self.get_all_textures()
+        self.renderer = MGlRenderer(vertex_shader, fragment_shader, projection_matrix, texture_list,
+                                    output_resolution=output_resolution)
+
+    ################################################################
     # Finding and indexing textures
     ################################################################
     def get_all_textures(self):
@@ -364,23 +415,6 @@ class BlockRenderer(object):
     ################################################################
     # Render methods
     ################################################################
-    def render_vertex_array(self, vertex_array: mgl.VertexArray, face_texture_ids: list, face_uvs: list, *,
-                            pos=(0, 0, 0), model_rot=(0, 0, 0), scale=(1, 1, 1), uvlock=False,
-                            rotation_origin=(0, 0, 0), rotation_axis=(1, 0, 0), rotation_angle=0,
-                            face_rotation=[0, 0, 0, 0, 0, 0]):
-        # Write uniform values and render the vertex_array
-        vertex_array.program["face_texture_ids"].write(np.array(face_texture_ids, dtype="i4").tobytes())
-        vertex_array.program["face_uvs"].write(np.array(face_uvs, dtype="f4").tobytes())
-        vertex_array.program["face_rotation"].write(np.array(face_rotation, dtype="f4").tobytes())
-        vertex_array.program["model_rot"].write(np.array(model_rot, dtype="f4").tobytes())
-        vertex_array.program["uvlock"].write(ctypes.c_int32(1 if uvlock else 0))
-        vertex_array.program["pos"].write(np.array(pos, dtype="f4"))
-        vertex_array.program["scale"].write(np.array(scale, dtype="f4"))
-        vertex_array.program["rotation_angle"].write(ctypes.c_float(rotation_angle))
-        vertex_array.program["rotation_origin"].write(np.array(rotation_origin, dtype="f4").tobytes())
-        vertex_array.program["rotation_axis"].write(np.array(rotation_axis, dtype="f4").tobytes())
-        vertex_array.render()
-
     def render_element(self, element, texture_variables: dict, rotation_x_axis, rotation_y_axis, uvlock):
         _from = element["from"]
         _to = element["to"]
@@ -431,9 +465,14 @@ class BlockRenderer(object):
             rotation_kwargs = {}
 
         # Render the cube
-        self.render_vertex_array(
-            self.cube_model, face_texture_ids, face_uvs, face_rotation=face_rotation,
-            pos=pos, model_rot=model_rot, scale=scale, uvlock=uvlock, **rotation_kwargs
+        self.renderer.render_cube(
+            face_texture_ids=face_texture_ids,
+            face_uvs=face_uvs,
+            pos=pos,
+            model_rot=model_rot,
+            scale=scale,
+            uvlock=uvlock,
+            **rotation_kwargs
         )
 
     def render_model(self, settings: dict):
@@ -449,20 +488,15 @@ class BlockRenderer(object):
                 uvlock=settings.get("uvlock", False),
             )
 
-    def read_to_img(self):
-        # Read the data from the framebuffer and return it as a PIL.Image
-        img = Image.frombytes("RGBA", (self.resolution, self.resolution), self.fbo.read(components=4))
-        return img.transpose(Image.FLIP_TOP_BOTTOM)
-
     def render_model_to_img(self, settings: dict):
-        self.ctx.clear()
+        self.renderer.clear()
         try:
             self.render_model(settings)
         except NoElementDataInDefinition:
             logger.info("No Element data found for the model {0}".format(settings.get("model")))
             return None
         else:
-            return self.read_to_img()
+            return self.renderer.read_to_img()
 
     def render_blockstates(self, data: dict) -> (str, []):
         if "variants" in data:
@@ -525,7 +559,6 @@ class BlockRenderer(object):
 
         logger.debug("Searching for blockstates in " + self.assetLoader.BLOCKSTATES_DIR)
 
-       
         return self.iter_blocks(sorted(self.assetLoader.walk_assets(self.assetLoader.BLOCKSTATES_DIR, r".json")))
 
     def iter_for_generate(self):
