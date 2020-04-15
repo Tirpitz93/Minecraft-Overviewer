@@ -195,7 +195,6 @@ class BlockRenderer(object):
         for i, tex in enumerate(texture_list):
             x, y = (i % atlas_size) * texture_size, (i // atlas_size) * texture_size
             img.paste(tex, (x, y, x + texture_size, y + texture_size))
-        img.show()
         return img
 
     def setup_rendering(self, vertex_shader, fragment_shader, projection_matrix=None,
