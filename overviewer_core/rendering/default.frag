@@ -1,13 +1,16 @@
 #version 330
 
-uniform sampler2DArray Textures;
-in vec4 color;
-in vec3 texCoord;
+uniform sampler2D textureAtlas;
+uniform float tile_size;
+in vec2 uv;
+in vec2 tile_offset;
 in float lum;
 out vec4 fragColor;
 
 void main() {
-    fragColor = vec4(lum, lum, lum, 1.0) * vec4(texture(Textures, texCoord));
+    // GL_REPEAT workaround when a TextureAtlas is used
+    vec2 texCoord = tile_offset + tile_size * fract(uv);
+    fragColor = vec4(lum, lum, lum, 1.0) * texture(textureAtlas, texCoord);
     if (fragColor.a < 0.001)
         discard;
 }

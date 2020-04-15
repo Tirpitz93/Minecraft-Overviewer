@@ -1,4 +1,5 @@
 import ctypes
+import math
 import os
 import typing
 from collections import defaultdict
@@ -180,6 +181,23 @@ class BlockRenderer(object):
             logger.error("\t%s: %s" % (str(type(e)), e))
         raise NoContextCreated(exceptions)
 
+    @staticmethod
+    def create_texture_atlas(texture_size: int, atlas_size: int, texture_list: list):
+        """
+        This method combines a list of textures into a single image. All textures are resized to texture_size
+
+        :param texture_size: Size of each individual texture
+        :param atlas_size: Size of the resulting Image in subtexture cound
+        :param texture_list: List of textures
+        :return:
+        """
+        img = Image.new("RGBA", (texture_size*atlas_size, texture_size*atlas_size))
+        for i, tex in enumerate(texture_list):
+            x, y = (i % atlas_size) * texture_size, (i // atlas_size) * texture_size
+            img.paste(tex, (x, y, x + texture_size, y + texture_size))
+        img.show()
+        return img
+
     def setup_rendering(self, vertex_shader, fragment_shader, projection_matrix=None,
                         light_vector=DEFAULT_LIGHT_VECTOR):
         # Read shader source-code
@@ -230,20 +248,23 @@ class BlockRenderer(object):
 
         # Load all textures into a single TextureArray
         # All textures have to be of size mc_texture_size*mc_texture_size
-        # TODO: This doesn't work on all systems because OpenGL 3 only supports the 3rd size parameter to be
-        #  GL_MAX_ARRAY_TEXTURE_LAYERS long, which must be higher than 256 but we have over 600 Textures resulting
-        #  in more Textures than layers. On those systems (e.g. ubuntu in virtualbox all textures are black.
-        #  Workaround: Use a Texture-atlas instead
+        #
+        # Unfortunatly we can't use a TextureArray. OpenGL 3 only supports the 3rd ize parameter to be
+        # GL_MAX_ARRAY_TEXTURE_LAYERS long, which must be higher than 256 but we have over 600 Textures resulting
+        # in more Textures than layers. On those systems (e.g. ubuntu in virtualbox all textures are black.
+        # Workaround: Use a Texture-atlas instead
         texture_list = self.get_all_textures()
-        texture_array = ctx.texture_array(
-            size=(self.mc_texture_size, self.mc_texture_size, len(texture_list)),
+        # Calculate the (minimum) size of the atlas in sub-textures
+        atlas_size = math.ceil(math.sqrt(len(texture_list)))
+        texture_atlas = ctx.texture(
+            size=(self.mc_texture_size * atlas_size, self.mc_texture_size * atlas_size),
             components=4,
-            data=b''.join([
-                img.tobytes() for img in texture_list
-            ])
+            data=self.create_texture_atlas(self.mc_texture_size, atlas_size, texture_list).tobytes()
         )
-        texture_array.filter = mgl.NEAREST, mgl.NEAREST
-        texture_array.use()
+        render_program["atlas_size"].write(ctypes.c_uint32(atlas_size))
+        render_program["tile_size"].write(ctypes.c_float(1 / atlas_size))
+        texture_atlas.filter = mgl.NEAREST, mgl.NEAREST
+        texture_atlas.use()
 
         # Set the "uniform" values the shaders require
         render_program["Mvp"].write(projection_matrix.astype('f4').tobytes())

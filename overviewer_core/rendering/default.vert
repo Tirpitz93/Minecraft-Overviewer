@@ -3,6 +3,7 @@
 // These are always the same
 uniform mat4 Mvp;
 uniform vec3 dir_light;
+uniform uint atlas_size;
 
 // Model Transform and MC specific values
 uniform vec3 pos;
@@ -23,9 +24,10 @@ in vec2 in_texcoord_0;
 in uint in_faceid;
 
 // Outputs passed to the fragment shader
-out vec3 texCoord;
 out vec4 color;
 out float lum;
+out vec2 uv;
+out vec2 tile_offset;
 
 void main() {
     if (face_texture_ids[in_faceid] == -1)
@@ -82,11 +84,9 @@ void main() {
         // UV coordinates
         if (uvlock) {
             // Calculate the UVs from the world-position of the vertex
-            texCoord = vec3(
-            vec2(0.5 + pos_in_block.x, 0.5 - pos_in_block.y) * abs(rot_normals.z) +
-            vec2(0.5 - pos_in_block.z, 0.5 + pos_in_block.y) * rot_normals.x +
-            vec2(0.5 + pos_in_block.x, 0.5 + pos_in_block.z) * rot_normals.y,
-            face_texture_ids[in_faceid]);
+            uv = vec2(0.5 + pos_in_block.x, 0.5 - pos_in_block.y) * abs(rot_normals.z) +
+                vec2(0.5 - pos_in_block.z, 0.5 + pos_in_block.y) * rot_normals.x +
+                vec2(0.5 + pos_in_block.x, 0.5 + pos_in_block.z) * rot_normals.y;
         }
         else {
             // Calculate the UVs from texcoord and the UV given by the json files
@@ -96,9 +96,11 @@ void main() {
             face_rotation_mat[1] = vec2(sin(face_rotation_angle), cos(face_rotation_angle));
 
             vec2 rotated_texcoord_0 = face_rotation_mat * (in_texcoord_0 - 0.5) + 0.5;
-            vec2 uv = rotated_texcoord_0 * face_uvs[in_faceid].xy + (1-rotated_texcoord_0) * face_uvs[in_faceid].zw;
-            texCoord = vec3(uv, face_texture_ids[in_faceid]);
+            uv = rotated_texcoord_0 * face_uvs[in_faceid].xy + (1-rotated_texcoord_0) * face_uvs[in_faceid].zw;
         }
+        // Convert the texture ID to the tile offset. This could have been done in python, too
+        uint texture_index = uint(face_texture_ids[in_faceid]);
+        tile_offset = vec2(texture_index % atlas_size, texture_index / atlas_size) / atlas_size;
 
         // Light
         lum = max(dot(rot_normals.xyz, dir_light), 0.0);
