@@ -256,6 +256,18 @@ class BlockRenderer(object):
         texture_list = self.get_all_textures()
         # Calculate the (minimum) size of the atlas in sub-textures
         atlas_size = math.ceil(math.sqrt(len(texture_list)))
+        gl_max_texture_size = ctx.info["GL_MAX_TEXTURE_SIZE"]
+        # noinspection PyTypeChecker
+        if type(gl_max_texture_size) not in (int, float):
+            logger.warning("GL_MAX_TEXTURE_SIZE is no integer: %s" % gl_max_texture_size)
+        elif self.mc_texture_size * atlas_size > gl_max_texture_size:
+            logger.error(
+                "Can't create the TextureAtlas because it would be too large. "
+                "Trying to do it anyway but this will probably result in a wrong Image. %s" % str({
+                    "required_texture_size": self.mc_texture_size * atlas_size,
+                    "GL_MAX_TEXTURE_SIZE": ctx.info["GL_MAX_TEXTURE_SIZE"]
+                })
+            )
         texture_atlas = ctx.texture(
             size=(self.mc_texture_size * atlas_size, self.mc_texture_size * atlas_size),
             components=4,
