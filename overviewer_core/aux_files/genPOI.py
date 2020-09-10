@@ -37,6 +37,13 @@ from overviewer_core.files import FileReplacer, get_fs_caps
 UUID_LOOKUP_URL = 'https://sessionserver.mojang.com/session/minecraft/profile/'
 
 
+DIMENSION_INT_TO_STR = {
+    0: "minecraft:overworld",
+    -1: "minecraft:the_nether",
+    1: "minecraft:the_end"
+}
+
+
 def replaceBads(s):
     "Replaces bad characters with good characters!"
     bads = [" ", "(", ")"]
@@ -142,8 +149,8 @@ def parseBucketChunks(task_tuple):
         if i == 250:
             i = 0
             cnt = 250 + cnt
-            logging.info("Found %d markers in thread %d so far at %d chunks.",
-                         sum(len(v) for v in markers.values()), pid, cnt)
+            logging.debug("Found %d markers in thread %d so far at %d chunks.",
+                          sum(len(v) for v in markers.values()), pid, cnt)
 
     return markers
 
@@ -210,6 +217,8 @@ def handleEntities(rset, config, config_path, filters, markers):
 
         results = pool.map(parseBucketChunks, ((buck, rset, filters) for buck in buckets))
 
+        pool.close()
+        pool.join()
         logging.info("All the threads completed.")
 
         for marker_dict in results:
@@ -279,7 +288,9 @@ class PlayerDict(dict):
             pass
 
         try:
-            profile = json.loads(urllib.request.urlopen(UUID_LOOKUP_URL + sname).read().decode("utf-8"))
+            profile = json.loads(
+                urllib.request.urlopen(UUID_LOOKUP_URL + sname).read().decode("utf-8")
+            )
             if 'name' in profile:
                 profile['retrievedAt'] = time.mktime(time.localtime())
                 PlayerDict.uuid_cache[sname] = profile
@@ -356,14 +367,19 @@ def handlePlayers(worldpath, filters, markers):
                 dimension = int(re.match(r"^DIM(_MYST)?(-?\d+)$", rset.get_type()).group(2))
             else:
                 dimension = 0
+            dimension = DIMENSION_INT_TO_STR.get(dimension, "minecraft:overworld")
 
-            if data.get('Dimension', 0) == dimension:
+            read_dim = data.get("Dimension", "minecraft:overworld")
+            if type(read_dim) == int:
+                read_dim = DIMENSION_INT_TO_STR.get(read_dim, "minecraft:overworld")
+
+            if read_dim == dimension:
                 result = filter_function(data)
                 if result:
                     d = create_marker_from_filter_result(data, result)
                     markers[name]['raw'].append(d)
 
-            if dimension == 0 and "SpawnX" in data:
+            if dimension == "minecraft:overworld" and "SpawnX" in data:
                 result = filter_function(spawn)
                 if result:
                     d = create_marker_from_filter_result(spawn, result)
@@ -425,8 +441,8 @@ def create_marker_from_filter_result(poi, result):
             d["createInfoWindow"] = result['createInfoWindow']
 
         # Polylines and polygons
-        if ('polyline' in result and hasattr(result['polyline'], '__iter__')) or \
-            'polygon' in result and hasattr(result['polygon'], '__iter__'):
+        if (('polyline' in result and hasattr(result['polyline'], '__iter__')) or
+            'polygon' in result and hasattr(result['polygon'], '__iter__')):
             # If the points form a line or closed shape
             d['isLine'] = 'polyline' in result
             # Collect points
@@ -443,7 +459,7 @@ def create_marker_from_filter_result(poi, result):
             if 'fill' in result:
                 d['fill'] = result['fill']
             else:
-                d['fill'] = not d['isLine'] # fill polygons by default
+                d['fill'] = not d['isLine']     # fill polygons by default
 
             if 'weight' in result:
                 d['strokeWeight'] = result['weight']
@@ -502,6 +518,8 @@ def main():
     filters = set()
     marker_groups = defaultdict(list)
 
+    logging.info("Searching renders: %s", list(config['renders']))
+
     # collect all filters and get regionsets
     for rname, render in config['renders'].items():
         # Convert render['world'] to the world path, and store the original
@@ -552,21 +570,23 @@ def main():
                 displayName=f['name'],
                 icon=f.get('icon', 'signpost_icon.png'),
                 createInfoWindow=f.get('createInfoWindow', True),
-                checked=f.get('checked', False))
+                checked=f.get('checked', False),
+                showIconInLegend=f.get('showIconInLegend', False))
             marker_groups[rname].append(group)
 
     # initialize the structure for the markers
     markers = dict((name, dict(created=False, raw=[], name=filter_name))
                    for name, filter_name, __, __, __, __ in filters)
 
+    all_rsets = set(map(lambda f: f[3], filters))
+    logging.info("Will search %s region sets using %s filters", len(all_rsets), len(filters))
+
     # apply filters to regionsets
     if not args.skipscan:
-        # group filters by rset
-        def keyfunc(x):
-            return x[3]
-        sfilters = sorted(filters, key=keyfunc)
-        for rset, rset_filters in itertools.groupby(sfilters, keyfunc):
-            handleEntities(rset, config, args.config, list(rset_filters), markers)
+        for rset in all_rsets:
+            rset_filters = list(filter(lambda f: f[3] == rset, filters))
+            logging.info("Calling handleEntities for %s with %s filters", rset, len(rset_filters))
+            handleEntities(rset, config, args.config, rset_filters, markers)
 
     # apply filters to players
     if not args.skipplayers:
@@ -598,11 +618,11 @@ def main():
 
     with open(os.path.join(destdir, "markersDB.js"), "w") as output:
         output.write("var markersDB=")
-        json.dump(markers, output, indent=2)
+        json.dump(markers, output, sort_keys=True, indent=2)
         output.write(";\n")
     with open(os.path.join(destdir, "markers.js"), "w") as output:
         output.write("var markers=")
-        json.dump(marker_groups, output, indent=2)
+        json.dump(marker_groups, output, sort_keys=True, indent=2)
         output.write(";\n")
     with open(os.path.join(destdir, "baseMarkers.js"), "w") as output:
         output.write("overviewer.util.injectMarkerScript('markersDB.js');\n")

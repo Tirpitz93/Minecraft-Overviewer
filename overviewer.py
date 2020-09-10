@@ -239,6 +239,9 @@ def main():
             f = tex.find_file("assets/minecraft/textures/block/grass_block_top.png", verbose=True)
             f = tex.find_file("assets/minecraft/textures/block/diamond_ore.png", verbose=True)
             f = tex.find_file("assets/minecraft/textures/block/acacia_planks.png", verbose=True)
+            # 1.16
+            f = tex.find_file("assets/minecraft/textures/block/ancient_debris_top.png",
+                              verbose=True)
         except IOError:
             logging.error("Could not find any texture files.")
             return 1
@@ -365,7 +368,7 @@ def main():
 
     ############################################################
     # Final validation steps and creation of the destination directory
-    logging.info("Welcome to Minecraft Overviewer!")
+    logging.info("Welcome to Minecraft Overviewer version %s (%s)!" % (util.findGitVersion(), util.findGitHash()[:7]))
     logging.debug("Current log level: {0}.".format(logging.getLogger().level))
 
     def set_renderchecks(checkname, num):
