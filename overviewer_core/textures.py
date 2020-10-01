@@ -34,15 +34,16 @@ blockmap_generators = {}
 
 known_blocks = set()
 used_datas = set()
-max_blockid = 0
+max_blockid = 23000
 max_data = 0
 
 transparent_blocks = set()
-solid_blocks = set()
+solid_blocks = set([22000])
 fluid_blocks = set()
 nospawn_blocks = set()
 nodata_blocks = set()
 
+IMG_N =0
 
 # This is here for circular import reasons.
 # Please don't ask, I choose to repress these memories.
@@ -150,6 +151,9 @@ class Textures(object):
 
         for (blockid, data), img in list(block_renderer.iter_for_generate()):
             self.blockmap[blockid * max_data + data] = self.generate_texture_tuple(img)
+            known_blocks.add(blockid)
+
+
 
         if self.texture_size != 24:
             # rescale biome grass
@@ -162,7 +166,7 @@ class Textures(object):
                 block = tex[0]
                 scaled_block = block.resize(self.texture_dimensions, Image.ANTIALIAS)
                 blockmap[i] = self.generate_texture_tuple(scaled_block)
-        
+
         self.generated = True
     
     ##
@@ -774,7 +778,9 @@ class Textures(object):
         for x,y in [(3,4), (7,2), (11,0)]:
             # Copy a pixel to x,y from x+1,y
             img.putpixel((x,y), img.getpixel((x+1,y)))
-
+        global IMG_N
+        # IMG_N +=1
+        # img.save("C:/Datafile/LSelter/Documents/Minecraft-Overviewer/test_Conf/debug/"+ str(IMG_N) + ".png")
         return img
 
     def build_sprite(self, side):
@@ -1015,8 +1021,8 @@ block(blockid=7, top_image="assets/minecraft/textures/block/bedrock.png")
 def no_inner_surfaces(self, blockid, data):
     if blockid == 8 or blockid == 9:
         texture = self.load_water()
-    elif blockid == 20:
-        texture = self.load_image_texture("assets/minecraft/textures/block/glass.png")
+    # elif blockid == 20:
+    #     texture = self.load_image_texture("assets/minecraft/textures/block/glass.png")
     elif blockid == 95:
         texture = self.load_image_texture("assets/minecraft/textures/block/%s_stained_glass.png" % color_map[data & 0x0f])
     else:
@@ -1063,14 +1069,6 @@ def lava(self, blockid, data):
     lavatex = self.load_lava()
     return self.build_block(lavatex, lavatex)
 
-# sand
-@material(blockid=12, data=list(range(2)), solid=True)
-def sand_blocks(self, blockid, data):
-    if data == 0: # normal
-        img = self.build_block(self.load_image_texture("assets/minecraft/textures/block/sand.png"), self.load_image_texture("assets/minecraft/textures/block/sand.png"))
-    if data == 1: # red
-        img = self.build_block(self.load_image_texture("assets/minecraft/textures/block/red_sand.png"), self.load_image_texture("assets/minecraft/textures/block/red_sand.png"))
-    return img
 
 # gravel
 block(blockid=13, top_image="assets/minecraft/textures/block/gravel.png")

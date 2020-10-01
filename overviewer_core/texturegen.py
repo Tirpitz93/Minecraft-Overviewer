@@ -1,12 +1,15 @@
 import os
 import json
 from collections import defaultdict
+from functools import lru_cache
 
 from PIL import Image
+import logging
 
-
+logger = logging.getLogger(__name__)
 START_BLOCK_ID = 20000
 BLOCK_LIST = [
+    "dirt",
     "cyan_stained_glass",
     "gray_concrete_powder",
     "red_terracotta",
@@ -210,7 +213,6 @@ BLOCK_LIST = [
     "green_stained_glass",
     "polished_granite",
     "dead_horn_coral_block",
-    "dirt",
     "stripped_birch_wood",
     "bee_nest",
     "brown_stained_glass",
@@ -295,33 +297,40 @@ def flip(image, arg1):
 ################################################################
 # Main Code for Block Rendering
 ################################################################
-class BlockRenderer:
+class BlockRenderer(object):
     BLOCKSTATES_DIR = "assets/minecraft/blockstates"
     MODELS_DIR = "assets/minecraft/models"
     TEXTURES_DIR = "assets/minecraft/textures"
     data_map = defaultdict(list)
 
-    def __init__(self, textures, *, block_list=None, start_block_id=1):
+    def __init__(self, textures, *, block_list=BLOCK_LIST, start_block_id=1):
         self.textures = textures
         self.start_block_id = start_block_id
-        self.block_list = BLOCK_LIST if block_list is None else block_list
+        self.block_list = block_list
 
     ################################################################
     # Loading files
     ################################################################
+    def load_file(self, path:str, name:str, ext:str):
+        if ":" in name:
+            return self.textures.find_file("{0}/{1}{2}".format(path,name.split(":")[1],ext))
+        else:
+            return self.textures.find_file("{0}/{1}{2}".format(path,name,ext))
+
     def load_json(self, name: str, directory: str) -> dict:
-        fp = self.textures.find_file(os.path.join(directory, "%s.json" % name), "r")
-        try:
-            data = json.load(fp)
-        finally:
-            fp.close()
-        return data
+        with self.load_file(directory, name, ".json") as f:
+            return json.load(f)
 
     def load_blockstates(self, name: str) -> dict:
         return self.load_json(name, self.BLOCKSTATES_DIR)
 
     def load_model(self, name: str) -> dict:
         return self.load_json(name, self.MODELS_DIR)
+
+    @lru_cache
+    def load_img(self, texture_name):
+        with self.load_file(self.TEXTURES_DIR, texture_name, ".png") as f:
+            return Image.open(f).convert("RGBA")
 
     ################################################################
     # Model file parsing
@@ -373,9 +382,9 @@ class BlockRenderer:
             # Get the Texture (in case no variable is use
             texture_name = textures[definition["texture"][1:]]
 
-            texture = self.textures.load_image_texture(os.path.join(self.TEXTURES_DIR, "%s.png" % texture_name))
-            # texture = test_texture
-            # Apply rotation
+
+            texture = self.load_img(texture_name)
+
             if "rotation" in definition:
                 texture = texture.rotate(-definition["rotation"])
             s[face_name] = texture
@@ -533,10 +542,12 @@ class BlockRenderer:
                     raise e
 
     def iter_all_blocks(self, ignore_unsupported_blocks=True):
-        # TODO: This method is currently NOT working because os.walk can't be used inside a jar file
+        # TODO: Getting the find_file_local_path from textures is cheating and only works if the jar file is extracted
+        blockstates_dir = self.textures.find_file_local_path + "/assets/minecraft/blockstates"
+        logger.debug("Searching for blockstates in " + blockstates_dir)
         return self.iter_blocks([
             fn.split('.', 1)[0]
-            for _, _, files in os.walk(self.BLOCKSTATES_DIR)
+            for _, _, files in os.walk(blockstates_dir)
             for fn in files
             if fn.split('.', 1)[1] == "json"
         ], ignore_unsupported_blocks=ignore_unsupported_blocks)
@@ -547,8 +558,8 @@ class BlockRenderer:
         return blockid_count + self.start_block_id, data_count
 
     def iter_for_generate(self):
-        for block_index, block_name, nbt_index, nbt_condition, variants in self.iter_blocks(self.block_list):
+        for block_index, block_name, nbt_index, nbt_condition, variants in self.iter_all_blocks():
             if len(variants) >= 1:
-                #print("B:", block_name, block_index + self.start_block_id, nbt_index, nbt_condition)
+                logger.debug("Block found: {0} -> {1}:{2}".format(block_name, block_index, nbt_index))
                 BlockRenderer.store_nbt_as_int(block_name, nbt_condition, block_index + self.start_block_id, nbt_index)
                 yield (block_index + self.start_block_id, nbt_index), variants[0][0]

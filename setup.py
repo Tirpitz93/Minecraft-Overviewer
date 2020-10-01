@@ -10,7 +10,7 @@ if sys.version_info[0] == 2 or (sys.version_info[0] == 3 and sys.version_info[1]
     sys.exit(1)
 
 
-from distutils.core import setup
+from setuptools import setup
 from distutils.extension import Extension
 from distutils.command.build import build
 from distutils.command.clean import clean
