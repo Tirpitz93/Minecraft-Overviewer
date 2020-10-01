@@ -28,6 +28,7 @@ from . import nbt
 from . import texturegen
 from . import cache
 from .biome import reshape_biome_data
+from .textures import Textures
 
 """
 This module has routines for extracting information about available worlds
@@ -218,7 +219,8 @@ class World(object):
         if not regionset:
             return None
         try:
-            chunk = regionset.get_chunk(chunkX, chunkZ)
+            # The textures object is not needed here, because we only try to find air blocks
+            chunk = regionset.get_chunk(chunkX, chunkZ, textures=None)
         except ChunkDoesntExist:
             return (spawnX, spawnY, spawnZ)
         
@@ -297,55 +299,9 @@ class RegionSet(object):
             'minecraft:air': (0, 0),
             'minecraft:cave_air': (0, 0),
             'minecraft:void_air': (0, 0),
-            'minecraft:stone': (1, 0),
-            'minecraft:granite': (1, 1),
-            'minecraft:polished_granite': (1, 2),
-            'minecraft:diorite': (1, 3),
-            'minecraft:polished_diorite': (1, 4),
-            'minecraft:andesite': (1, 5),
-            'minecraft:polished_andesite': (1, 6),
-            'minecraft:grass_block': (2, 0),
-            'minecraft:dirt': (3, 0),
-            'minecraft:coarse_dirt': (3, 1),
-            'minecraft:podzol': (3, 2),
-            'minecraft:cobblestone': (4, 0),
-            'minecraft:infested_cobblestone': (4, 0),
-            'minecraft:oak_planks': (5, 0),
-            'minecraft:spruce_planks': (5, 1),
-            'minecraft:birch_planks': (5, 2),
-            'minecraft:jungle_planks': (5, 3),
-            'minecraft:acacia_planks': (5, 4),
-            'minecraft:dark_oak_planks': (5, 5),
-            'minecraft:sapling': (6, 0),
-            'minecraft:bedrock': (7, 0),
             'minecraft:water': (8, 0),
             'minecraft:lava': (10, 0),
-            'minecraft:sand': (12, 0),
-            'minecraft:red_sand': (12, 1),
-            'minecraft:gravel': (13, 0),
-            'minecraft:gold_ore': (14, 0),
-            'minecraft:iron_ore': (15, 0),
-            'minecraft:coal_ore': (16, 0),
-            'minecraft:oak_log': (17, 0),
-            'minecraft:spruce_log': (17, 1),
-            'minecraft:birch_log': (17, 2),
-            'minecraft:jungle_log': (17, 3),
-            'minecraft:oak_leaves': (18, 0),
-            'minecraft:spruce_leaves': (18, 1),
-            'minecraft:birch_leaves': (18, 2),
-            'minecraft:jungle_leaves': (18, 3),
-            'minecraft:acacia_leaves': (18, 4),
-            'minecraft:dark_oak_leaves': (18, 5),
-            'minecraft:sponge': (19, 0),
-            'minecraft:wet_sponge': (19, 1),
             'minecraft:glass': (20, 0),
-            'minecraft:lapis_ore': (21, 0),
-            'minecraft:lapis_block': (22, 0),
-            'minecraft:dispenser': (23, 0),
-            'minecraft:sandstone': (24, 0),
-            'minecraft:cut_sandstone': (24, 2),
-            'minecraft:chiseled_sandstone': (24, 3),
-            'minecraft:note_block': (25, 0),
             'minecraft:white_bed': (26, 0),
             'minecraft:orange_bed': (26, 0),
             'minecraft:magenta_bed': (26, 0),
@@ -362,32 +318,6 @@ class RegionSet(object):
             'minecraft:green_bed': (26, 0),
             'minecraft:red_bed': (26, 0),
             'minecraft:black_bed': (26, 0),
-            'minecraft:powered_rail': (27, 0),
-            'minecraft:detector_rail': (28, 0),
-            'minecraft:sticky_piston': (29, 0),
-            'minecraft:cobweb': (30, 0),
-            'minecraft:dead_bush': (31, 0),
-            'minecraft:grass': (31, 1),
-            'minecraft:fern': (31, 2),
-            'minecraft:piston': (33, 0),
-            'minecraft:piston_head': (34, 0),
-            'minecraft:white_wool': (35, 0),
-            'minecraft:orange_wool': (35, 1),
-            'minecraft:magenta_wool': (35, 2),
-            'minecraft:light_blue_wool': (35, 3),
-            'minecraft:yellow_wool': (35, 4),
-            'minecraft:lime_wool': (35, 5),
-            'minecraft:pink_wool': (35, 6),
-            'minecraft:gray_wool': (35, 7),
-            'minecraft:light_gray_wool': (35, 8),
-            'minecraft:cyan_wool': (35, 9),
-            'minecraft:purple_wool': (35, 10),
-            'minecraft:blue_wool': (35, 11),
-            'minecraft:brown_wool': (35, 12),
-            'minecraft:green_wool': (35, 13),
-            'minecraft:red_wool': (35, 14),
-            'minecraft:black_wool': (35, 15),
-
             'minecraft:poppy': (38, 0),
             'minecraft:blue_orchid': (38, 1),
             'minecraft:allium': (38, 2),
@@ -398,36 +328,9 @@ class RegionSet(object):
             'minecraft:pink_tulip': (38, 7),
             'minecraft:oxeye_daisy': (38, 8),
             'minecraft:dandelion': (38, 9),
-            'minecraft:brown_mushroom': (39, 0),
-            'minecraft:red_mushroom': (40, 0),
-            'minecraft:gold_block': (41, 0),
-            'minecraft:iron_block': (42, 0),
-            'minecraft:stone_slab': (44, 0),
-            'minecraft:sandstone_slab': (44, 1),
-            'minecraft:oak_slab': (44, 2),
-            'minecraft:cobblestone_slab': (44, 3),
-            'minecraft:brick_slab': (44, 4),
-            'minecraft:stone_brick_slab': (44, 5),
-            'minecraft:nether_brick_slab': (44, 6),
-            'minecraft:quartz_slab': (44, 7),
-            'minecraft:bricks': (45, 0),
-            'minecraft:tnt': (46, 0),
-            'minecraft:bookshelf': (47, 0),
-            'minecraft:mossy_cobblestone': (48, 0),
-            'minecraft:obsidian': (49, 0),
-            'minecraft:wall_torch': (50, 0),
-            'minecraft:torch': (50, 5),
             'minecraft:fire': (51, 0),
-            'minecraft:spawner': (52, 0),
-            'minecraft:oak_stairs': (53, 0),
             'minecraft:chest': (54, 0),
             'minecraft:redstone_wire': (55, 0),
-            'minecraft:diamond_ore': (56, 0),
-            'minecraft:diamond_block': (57, 0),
-            'minecraft:crafting_table': (58, 0),
-            'minecraft:wheat': (59, 0),
-            'minecraft:farmland': (60, 0),
-            'minecraft:furnace': (61, 0),
             'minecraft:sign': (63, 0),
             'minecraft:oak_sign': (11401, 0),
             'minecraft:spruce_sign': (11402, 0),
@@ -435,10 +338,6 @@ class RegionSet(object):
             'minecraft:jungle_sign': (11404, 0),
             'minecraft:acacia_sign': (11405, 0),
             'minecraft:dark_oak_sign': (11406, 0),
-            'minecraft:oak_door': (64, 0),
-            'minecraft:ladder': (65, 0),
-            'minecraft:rail': (66, 0),
-            'minecraft:cobblestone_stairs': (67, 0),
             'minecraft:wall_sign': (68, 0),
             'minecraft:oak_wall_sign': (11407, 0),
             'minecraft:spruce_wall_sign': (11408, 0),
@@ -446,86 +345,20 @@ class RegionSet(object):
             'minecraft:jungle_wall_sign': (11410, 0),
             'minecraft:acacia_wall_sign': (11411, 0),
             'minecraft:dark_oak_wall_sign': (11412, 0),
-            'minecraft:lever': (69, 0),
-            'minecraft:stone_pressure_plate': (70, 0),
-            'minecraft:iron_door': (71, 0),
-            'minecraft:oak_pressure_plate': (72, 0),
-            'minecraft:redstone_ore': (73, 0),
-            'minecraft:redstone_wall_torch': (75, 0),
-            'minecraft:redstone_torch': (75, 5),
-            'minecraft:stone_button': (77, 0),
-            'minecraft:snow': (78, 0),
             'minecraft:ice': (79, 0),
-            'minecraft:snow_block': (80, 0),
-            'minecraft:cactus': (81, 0),
-            'minecraft:clay': (82, 0),
-            'minecraft:sugar_cane': (83, 0),
-            'minecraft:jukebox': (84, 0),
             'minecraft:oak_fence': (85, 0),
-            'minecraft:pumpkin': (86, 0),
-            'minecraft:netherrack': (87, 0),
-            'minecraft:soul_sand': (88, 0),
-            'minecraft:glowstone': (89, 0),
-            'minecraft:nether_portal': (90, 0),
-            'minecraft:jack_o_lantern': (91, 0),
-            'minecraft:cake': (92, 0),
-            'minecraft:repeater': (93,0),
-            'minecraft:oak_trapdoor': (96, 0),
-            'minecraft:infested_stone': (97, 0),
-            'minecraft:stone_bricks': (98, 0),
-            'minecraft:infested_stone_bricks': (98, 0),
-            'minecraft:mossy_stone_bricks': (98, 1),
-            'minecraft:infested_mossy_stone_bricks': (98, 1),
-            'minecraft:cracked_stone_bricks': (98, 2),
-            'minecraft:infested_cracked_stone_bricks': (98, 2),
-            'minecraft:chiseled_stone_bricks': (98, 3),
-            'minecraft:infested_chiseled_stone_bricks': (98, 3),
             'minecraft:brown_mushroom_block': (99, 0),
             'minecraft:red_mushroom_block': (100, 0),
             'minecraft:mushroom_stem': (100,10),
             'minecraft:iron_bars': (101, 0),
             'minecraft:glass_pane': (102, 0),
-            'minecraft:melon': (103,0),
-            'minecraft:attached_pumpkin_stem': (104, 0),
-            'minecraft:attached_melon_stem': (104, 0),
-            'minecraft:pumpkin_stem': (105, 0),
-            'minecraft:melon_stem': (105, 0),
-            'minecraft:vine': (106, 0),
-            'minecraft:oak_fence_gate': (107, 0),
-            'minecraft:brick_stairs': (108, 0),
-            'minecraft:stone_brick_stairs': (109, 0),
-            'minecraft:mycelium': (110, 0),
-            'minecraft:lily_pad': (111, 0),
-            'minecraft:nether_bricks': (112, 0),
             'minecraft:nether_brick_fence': (113, 0),
-            'minecraft:nether_brick_stairs': (114, 0),
-            'minecraft:nether_wart': (115, 0),
-            'minecraft:enchanting_table': (116, 0),
             'minecraft:brewing_stand': (117, 0),
-            'minecraft:cauldron': (118, 0),
             'minecraft:end_portal': (119, 0),
             'minecraft:end_portal_frame': (120, 0),
-            'minecraft:end_stone': (121, 0),
-            'minecraft:dragon_egg': (122, 0),
-            'minecraft:redstone_lamp': (123, 0),
-            'minecraft:o7ak_slab': (126, 0),
-            'minecraft:spruce_slab': (126, 1),
-            'minecraft:birch_slab': (126, 2),
-            'minecraft:jungle_slab': (126, 3),
-            'minecraft:acacia_slab': (126, 4),
-            'minecraft:dark_oak_slab': (126, 5),
-            'minecraft:cocoa': (127, 0),
-            'minecraft:sandstone_stairs': (128, 0),
-            'minecraft:emerald_ore': (129, 0),
             'minecraft:ender_chest': (130, 0),
             'minecraft:tripwire': (131, 0),
             'minecraft:tripwire_hook': (132, 0),
-            'minecraft:emerald_block': (133, 0),
-            'minecraft:spruce_stairs': (134, 0),
-            'minecraft:birch_stairs': (135, 0),
-            'minecraft:jungle_stairs': (136, 0),
-            'minecraft:command_block': (137, 0),
-            'minecraft:beacon': (138, 0),
             'minecraft:flower_pot': (140, 0),
             'minecraft:potted_poppy': (140, 0),  # Pots not rendering
             'minecraft:potted_blue_orchid': (140, 0),
@@ -548,79 +381,14 @@ class RegionSet(object):
             'minecraft:potted_dead_bush': (140, 0),
             'minecraft:potted_cactus': (140, 0),
             'minecraft:potted_bamboo': (140, 0),
-            'minecraft:carrots': (141, 0),
-            'minecraft:potatoes': (142, 0),
-            'minecraft:oak_button': (143, 0),
+            # 'minecraft:oak_button': (143, 0),
             'minecraft:skeleton_wall_skull': (144, 0),  # not rendering
             'minecraft:wither_skeleton_wall_skull': (144, 1),   # not rendering
             'minecraft:zombie_wall_head': (144, 2),     # not rendering
             'minecraft:player_wall_head': (144, 3),     # not rendering
             'minecraft:creeper_wall_head': (144, 4),    # not rendering
             'minecraft:dragon_wall_head': (144, 5),     # not rendering
-            'minecraft:anvil': (145, 0),
-            'minecraft:chipped_anvil': (145, 4),
-            'minecraft:damaged_anvil': (145, 8),
             'minecraft:trapped_chest': (146, 0),
-            'minecraft:light_weighted_pressure_plate': (147, 0),
-            'minecraft:heavy_weighted_pressure_plate': (148, 0),
-            'minecraft:comparator': (149, 0),
-            'minecraft:daylight_detector': (151, 0),
-            'minecraft:redstone_block': (152, 0),
-            'minecraft:nether_quartz_ore': (153, 0),
-            'minecraft:hopper': (154, 0),
-            'minecraft:quartz_block': (155, 0),
-            'minecraft:smooth_quartz': (155, 0),    # Only bottom texture is different
-            'minecraft:quartz_pillar': (155, 2),
-            'minecraft:chiseled_quartz_block': (155, 1),
-            'minecraft:quartz_stairs': (156, 0),
-            'minecraft:activator_rail': (157, 0),
-            'minecraft:dropper': (158, 0),
-            'minecraft:white_terracotta': (159, 0),
-            'minecraft:orange_terracotta': (159, 1),
-            'minecraft:magenta_terracotta': (159, 2),
-            'minecraft:light_blue_terracotta': (159, 3),
-            'minecraft:yellow_terracotta': (159, 4),
-            'minecraft:lime_terracotta': (159, 5),
-            'minecraft:pink_terracotta': (159, 6),
-            'minecraft:gray_terracotta': (159, 7),
-            'minecraft:light_gray_terracotta': (159, 8),
-            'minecraft:cyan_terracotta': (159, 9),
-            'minecraft:purple_terracotta': (159, 10),
-            'minecraft:blue_terracotta': (159, 11),
-            'minecraft:brown_terracotta': (159, 12),
-            'minecraft:green_terracotta': (159, 13),
-            'minecraft:red_terracotta': (159, 14),
-            'minecraft:black_terracotta': (159, 15),
-            'minecraft:acacia_log': (162, 0),
-            'minecraft:dark_oak_log': (162, 1),
-            'minecraft:acacia_stairs': (163, 0),
-            'minecraft:dark_oak_stairs': (164, 0),
-            'minecraft:slime_block': (165,0),
-            'minecraft:iron_trapdoor': (167, 0),
-            'minecraft:prismarine': (168, 0),
-            'minecraft:dark_prismarine': (168, 2),
-            'minecraft:prismarine_bricks': (168, 1),
-            'minecraft:sea_lantern': (169, 0),
-            'minecraft:hay_block': (170, 0),
-            'minecraft:white_carpet': (171, 0),
-            'minecraft:orange_carpet': (171, 1),
-            'minecraft:magenta_carpet': (171, 2),
-            'minecraft:light_blue_carpet': (171, 3),
-            'minecraft:yellow_carpet': (171, 4),
-            'minecraft:lime_carpet': (171, 5),
-            'minecraft:pink_carpet': (171, 6),
-            'minecraft:gray_carpet': (171, 7),
-            'minecraft:light_gray_carpet': (171, 8),
-            'minecraft:cyan_carpet': (171, 9),
-            'minecraft:purple_carpet': (171, 10),
-            'minecraft:blue_carpet': (171, 11),
-            'minecraft:brown_carpet': (171, 12),
-            'minecraft:green_carpet': (171, 13),
-            'minecraft:red_carpet': (171, 14),
-            'minecraft:black_carpet': (171, 15),
-            'minecraft:terracotta': (172, 0),
-            'minecraft:coal_block': (173, 0),
-            'minecraft:packed_ice': (174, 0),
             'minecraft:sunflower': (175, 0),
             'minecraft:lilac': (175, 1),
             'minecraft:tall_grass': (175, 2),
@@ -629,44 +397,14 @@ class RegionSet(object):
             'minecraft:peony': (175, 5),
             'minecraft:standing_banner': (176, 0),
             'minecraft:wall_banner': (177, 0),
-            'minecraft:red_sandstone': (179, 0),
-            'minecraft:cut_red_sandstone': (179, 2),
-            'minecraft:chiseled_red_sandstone': (179, 3),
-            'minecraft:red_sandstone_stairs': (180, 0),
-            'minecraft:red_sandstone_slab': (182,0),
-            'minecraft:spruce_fence_gate': (183, 0),
-            'minecraft:birch_fence_gate': (184, 0),
-            'minecraft:jungle_fence_gate': (185, 0),
-            'minecraft:dark_oak_fence_gate': (186, 0),
-            'minecraft:acacia_fence_gate': (187, 0),
             'minecraft:spruce_fence': (188, 0),
             'minecraft:birch_fence': (189, 0),
             'minecraft:jungle_fence': (190, 0),
             'minecraft:dark_oak_fence': (191, 0),
             'minecraft:acacia_fence': (192, 0),
-            'minecraft:spruce_door': (193, 0),
-            'minecraft:birch_door': (194, 0),
-            'minecraft:jungle_door': (195, 0),
-            'minecraft:acacia_door': (196, 0),
-            'minecraft:dark_oak_door': (197, 0),
             'minecraft:end_rod': (198, 0),  # not rendering
             'minecraft:chorus_plant': (199, 0),
-            'minecraft:chorus_flower': (200, 0),
-            'minecraft:purpur_block': (201, 0),
-            'minecraft:purpur_pillar': (202, 0),
-            'minecraft:purpur_stairs': (203, 0),
-            'minecraft:purpur_slab': (205, 0),
-            'minecraft:end_stone_bricks': (206, 0),
-            'minecraft:beetroots': (207, 0),
-            'minecraft:grass_path': (208, 0),
-            'minecraft:repeating_command_block': (210, 0),
-            'minecraft:chain_command_block': (211, 0),
-            'minecraft:frosted_ice': (212, 0),
-            'minecraft:magma_block': (213, 0),
             'minecraft:nether_wart_block': (214, 0),
-            'minecraft:red_nether_bricks': (215, 0),
-            'minecraft:bone_block': (216, 0),
-            'minecraft:observer': (218, 0),
             'minecraft:white_shulker_box': (219, 0),
             'minecraft:orange_shulker_box': (220, 0),
             'minecraft:magenta_shulker_box': (221, 0),
@@ -684,25 +422,6 @@ class RegionSet(object):
             'minecraft:green_shulker_box': (232, 0),
             'minecraft:red_shulker_box': (233, 0),
             'minecraft:black_shulker_box': (234, 0),
-            'minecraft:white_glazed_terracotta': (235, 0),
-            'minecraft:orange_glazed_terracotta': (236, 0),
-            'minecraft:magenta_glazed_terracotta': (237, 0),
-            'minecraft:light_blue_glazed_terracotta': (238, 0),
-            'minecraft:yellow_glazed_terracotta': (239, 0),
-            'minecraft:lime_glazed_terracotta': (240, 0),
-            'minecraft:pink_glazed_terracotta': (241, 0),
-            'minecraft:gray_glazed_terracotta': (242, 0),
-            'minecraft:light_gray_glazed_terracotta': (243, 0),
-            'minecraft:cyan_glazed_terracotta': (244, 0),
-            'minecraft:purple_glazed_terracotta': (245, 0),
-            'minecraft:blue_glazed_terracotta': (246, 0),
-            'minecraft:brown_glazed_terracotta': (247, 0),
-            'minecraft:green_glazed_terracotta': (248, 0),
-            'minecraft:red_glazed_terracotta': (249, 0),
-            'minecraft:black_glazed_terracotta': (250, 0),
-
-            'minecraft:structure_block': (255, 0),
-
             'minecraft:armor_stand': (416, 0),  # not rendering
 
             # The following blocks are underwater and are not yet rendered.
@@ -730,117 +449,9 @@ class RegionSet(object):
             'minecraft:tube_coral_wall_fan': (8, 0),
 
             # New blocks
-            'minecraft:carved_pumpkin': (11300, 0),
-            'minecraft:spruce_pressure_plate': (11301, 0),
-            'minecraft:birch_pressure_plate': (11302, 0),
-            'minecraft:jungle_pressure_plate': (11303, 0),
-            'minecraft:acacia_pressure_plate': (11304, 0),
-            'minecraft:dark_oak_pressure_plate': (11305, 0),
-            'minecraft:stripped_oak_log': (11306, 0),
-            'minecraft:stripped_spruce_log': (11306, 1),
-            'minecraft:stripped_birch_log': (11306, 2),
-            'minecraft:stripped_jungle_log': (11306, 3),
-            'minecraft:stripped_acacia_log': (11307, 0),
-            'minecraft:stripped_dark_oak_log': (11307, 1),
-            'minecraft:oak_wood': (11308, 0),
-            'minecraft:spruce_wood': (11308, 1),
-            'minecraft:birch_wood': (11308, 2),
-            'minecraft:jungle_wood': (11308, 3),
-            'minecraft:acacia_wood': (11309, 0),
-            'minecraft:dark_oak_wood': (11309, 1),
-            'minecraft:stripped_oak_wood': (11310, 0),
-            'minecraft:stripped_spruce_wood': (11310, 1),
-            'minecraft:stripped_birch_wood': (11310, 2),
-            'minecraft:stripped_jungle_wood': (11310, 3),
-            'minecraft:stripped_acacia_wood': (11311, 0),
-            'minecraft:stripped_dark_oak_wood': (11311, 1),
-            'minecraft:blue_ice': (11312, 0),
-            'minecraft:smooth_stone': (11313, 0),
-            'minecraft:smooth_sandstone': (11314, 0),
-            'minecraft:smooth_red_sandstone': (11315, 0),
-            'minecraft:brain_coral_block': (11316, 0),
-            'minecraft:bubble_coral_block': (11317, 0),
-            'minecraft:fire_coral_block': (11318, 0),
-            'minecraft:horn_coral_block': (11319, 0),
-            'minecraft:tube_coral_block': (11320, 0),
-            'minecraft:dead_brain_coral_block': (11321, 0),
-            'minecraft:dead_bubble_coral_block': (11322, 0),
-            'minecraft:dead_fire_coral_block': (11323, 0),
-            'minecraft:dead_horn_coral_block': (11324, 0),
-            'minecraft:dead_tube_coral_block': (11325, 0),
-            'minecraft:spruce_button': (11326,0),
-            'minecraft:birch_button': (11327,0),
-            'minecraft:jungle_button': (11328,0),
-            'minecraft:acacia_button': (11329,0),
-            'minecraft:dark_oak_button': (11330,0),
-            'minecraft:dried_kelp_block': (11331,0),
-            'minecraft:spruce_trapdoor': (11332, 0),
-            'minecraft:birch_trapdoor': (11333, 0),
-            'minecraft:jungle_trapdoor': (11334, 0),
-            'minecraft:acacia_trapdoor': (11335, 0),
-            'minecraft:dark_oak_trapdoor': (11336, 0),
-            'minecraft:petrified_oak_slab': (126, 0),
-            'minecraft:prismarine_stairs': (11337, 0),
-            'minecraft:dark_prismarine_stairs': (11338, 0),
-            'minecraft:prismarine_brick_stairs': (11339,0),
-            'minecraft:prismarine_slab': (11340, 0),
-            'minecraft:dark_prismarine_slab': (11341, 0),
-            'minecraft:prismarine_brick_slab': (11342, 0),
-            "minecraft:andesite_slab": (11343, 0),
-            "minecraft:diorite_slab": (11344, 0),
-            "minecraft:granite_slab": (11345, 0),
-            "minecraft:polished_andesite_slab": (11346, 0),
-            "minecraft:polished_diorite_slab": (11347, 0),
-            "minecraft:polished_granite_slab": (11348, 0),
-            "minecraft:red_nether_brick_slab": (11349, 0),
-            "minecraft:smooth_sandstone_slab": (11350, 0),
-            "minecraft:cut_sandstone_slab": (11351, 0),
-            "minecraft:smooth_red_sandstone_slab": (11352, 0),
-            "minecraft:cut_red_sandstone_slab": (11353, 0),
-            "minecraft:end_stone_brick_slab": (11354, 0),
-            "minecraft:mossy_cobblestone_slab": (11355, 0),
-            "minecraft:mossy_stone_brick_slab": (11356, 0),
-            "minecraft:smooth_quartz_slab": (11357, 0),
-            "minecraft:smooth_stone_slab": (11358, 0),
-            "minecraft:fletching_table": (11359, 0),
-            "minecraft:cartography_table": (11360, 0),
-            "minecraft:smithing_table": (11361, 0),
-            "minecraft:blast_furnace": (11362, 0),
-            "minecraft:smoker": (11364, 0),
-            "minecraft:lectern": (11366, 0),
-            "minecraft:loom": (11367, 0),
-            "minecraft:stonecutter": (11368, 0),
-            "minecraft:grindstone": (11369, 0),
-            "minecraft:mossy_stone_brick_stairs": (11370, 0),
-            "minecraft:mossy_cobblestone_stairs": (11371, 0),
-            "minecraft:lantern": (11373, 0),
-            "minecraft:smooth_sandstone_stairs": (11374, 0),
-            'minecraft:smooth_quartz_stairs': (11375, 0),
-            'minecraft:polished_granite_stairs': (11376, 0),
-            'minecraft:polished_diorite_stairs': (11377, 0),
-            'minecraft:polished_andesite_stairs': (11378, 0),
-            'minecraft:stone_stairs': (11379, 0),
-            'minecraft:granite_stairs': (11380, 0),
-            'minecraft:diorite_stairs': (11381, 0),
-            'minecraft:andesite_stairs': (11382, 0),
-            'minecraft:end_stone_brick_stairs': (11383, 0),
-            'minecraft:red_nether_brick_stairs': (11384, 0),
-            'minecraft:oak_sapling': (11385, 0),
-            'minecraft:spruce_sapling': (11386, 0),
-            'minecraft:birch_sapling': (11387, 0),
-            'minecraft:jungle_sapling': (11388, 0),
-            'minecraft:acacia_sapling': (11389, 0),
-            'minecraft:dark_oak_sapling': (11390, 0),
-            'minecraft:bamboo_sapling': (11413, 0),
-            'minecraft:scaffolding': (11414, 0),
-            "minecraft:smooth_red_sandstone_stairs": (11415, 0),
             'minecraft:bamboo': (11416, 0),
             "minecraft:composter": (11417, 0),
             # 1.15 blocks below
-            'minecraft:beehive': (11501, 0),
-            'minecraft:bee_nest': (11502, 0),
-            'minecraft:honeycomb_block': (11503, 0),
-            'minecraft:honey_block': (11504, 0),
             # adding a gap in the numbering of walls to keep them all
             # in one numbering block starting at 21000
             'minecraft:andesite_wall': (21000, 0),
@@ -868,8 +479,6 @@ class RegionSet(object):
             self._blockmap['minecraft:%s_stained_glass_pane' % colors[i]] = (160, i)
             self._blockmap['minecraft:%s_banner'             % colors[i]] = (176, i) #not rendering
             self._blockmap['minecraft:%s_wall_banner'        % colors[i]] = (177, i) #not rendering
-            self._blockmap['minecraft:%s_concrete'           % colors[i]] = (251, i)
-            self._blockmap['minecraft:%s_concrete_powder'    % colors[i]] = (252, i)
 
 
     # Re-initialize upon unpickling
@@ -888,190 +497,33 @@ class RegionSet(object):
         """
         return self.regiondir < other.regiondir
 
-    def _get_block(self, palette_entry):
-        wood_slabs = ('minecraft:oak_slab','minecraft:spruce_slab','minecraft:birch_slab','minecraft:jungle_slab',
-                        'minecraft:acacia_slab','minecraft:dark_oak_slab','minecraft:petrified_oak_slab')
-        stone_slabs = ('minecraft:stone_slab', 'minecraft:sandstone_slab','minecraft:red_sandstone_slab',
-                        'minecraft:cobblestone_slab', 'minecraft:brick_slab','minecraft:purpur_slab',
-                        'minecraft:stone_brick_slab', 'minecraft:nether_brick_slab',
-                        'minecraft:quartz_slab', "minecraft:andesite_slab", 'minecraft:diorite_slab',
-                        'minecraft:granite_slab', 'minecraft:polished_andesite_slab',
-                        'minecraft:polished_diorite_slab','minecraft:polished_granite_slab',
-                        'minecraft:red_nether_brick_slab','minecraft:smooth_sandstone_slab',
-                        'minecraft:cut_sandstone_slab','minecraft:smooth_red_sandstone_slab',
-                        'minecraft:cut_red_sandstone_slab','minecraft:end_stone_brick_slab',
-                        'minecraft:mossy_cobblestone_slab','minecraft:mossy_stone_brick_slab',
-                        'minecraft:smooth_quartz_slab','minecraft:smooth_stone_slab'
-                         )
-        prismarine_slabs = ('minecraft:prismarine_slab','minecraft:dark_prismarine_slab','minecraft:prismarine_brick_slab')
-
+    def _get_block(self, palette_entry, textures: Textures):
         key = palette_entry['Name']
 
+        # If no textures object is given we can only find air blocks. All other blocks will get a random texture.
+        # Setting textures to None should never be used for rendering!
+        if textures is None:
+            return (0, 0) if key == "minecraft:air" else (1, 0)
+
         # Try finding the block using auto-texture-generation. If not found use the previous method
-        _auto_blockid, _auto_data = texturegen.BlockRenderer.get_nbt_as_int(key, palette_entry.get('Properties'))
+        _auto_blockid, _auto_data = textures.get_nbt_as_int(key, palette_entry.get('Properties'))
         if _auto_data is not None:
             data = _auto_data
             block = _auto_blockid
         else:
             (block, data) = self._blockmap[key]
 
-        if key in ['minecraft:redstone_ore', 'minecraft:redstone_lamp']:
-            if palette_entry['Properties']['lit'] == 'true':
-                block += 1
-        elif key.endswith('gate'):
-            facing = palette_entry['Properties']['facing']
-            data = {'south': 0, 'west': 1, 'north': 2, 'east': 3}[facing]
-            if palette_entry['Properties']['open'] == 'true':
-                data += 4
-        elif key.endswith('rail'):
-            shape = palette_entry['Properties']['shape']
-            data = {'north_south':0, 'east_west': 1, 'ascending_east': 2, 'ascending_west': 3, 'ascending_north': 4, 'ascending_south': 5, 'south_east': 6, 'south_west': 7, 'north_west': 8, 'north_east': 9}[shape]
-            if key == 'minecraft:powered_rail' and palette_entry['Properties']['powered'] == 'true':
-                data |= 8
-        elif key in ['minecraft:comparator', 'minecraft:repeater']:
-            if palette_entry['Properties']['powered'] == 'true':
-                block += 1
-            facing = palette_entry['Properties']['facing']
-            data = {'south': 0, 'west': 1, 'north': 2, 'east': 3}[facing]
-        elif key == 'minecraft:daylight_detector':
-            if palette_entry['Properties']['inverted'] == 'true':
-                block = 178
-        elif key == 'minecraft:redstone_wire':
+        if key == 'minecraft:redstone_wire':
             data = palette_entry['Properties']['power']
-        elif key == 'minecraft:grass_block':
-            if palette_entry['Properties']['snowy'] == 'true':
-                data |= 0x10
         elif key in ('minecraft:sunflower', 'minecraft:lilac', 'minecraft:tall_grass', 'minecraft:large_fern', 'minecraft:rose_bush', 'minecraft:peony'):
             if palette_entry['Properties']['half'] == 'upper':
                 data |= 0x08
-        elif key in wood_slabs + stone_slabs + prismarine_slabs:
-        # handle double slabs 
-            if palette_entry['Properties']['type'] == 'top':
-                data |= 0x08
-            elif palette_entry['Properties']['type'] == 'double':
-                if key in wood_slabs:
-                    block = 125         # block_double_wooden_slab
-                elif key in stone_slabs:
-                    if key == 'minecraft:stone_brick_slab':
-                        block = 98
-                    elif key == 'minecraft:stone_slab':
-                        block = 1      # stone data 0
-                    elif key == 'minecraft:cobblestone_slab':
-                        block = 4       # cobblestone
-                    elif key == 'minecraft:sandstone_slab':
-                        block = 24      # minecraft:sandstone
-                    elif key == 'minecraft:red_sandstone_slab':
-                        block = 179     # minecraft:red_sandstone
-                    elif key == 'minecraft:nether_brick_slab':
-                        block = 112     # minecraft:nether_bricks
-                    elif key == 'minecraft:quartz_slab':
-                        block = 155     # minecraft:quartz_block
-                    elif key == 'minecraft:brick_slab':
-                        block = 45      # minecraft:bricks
-                    elif key == 'minecraft:purpur_slab':
-                        block = 201     # minecraft:purpur_block
-                    elif key == 'minecraft:andesite_slab':
-                        block = 1   # minecraft:andesite
-                        data  = 5
-                    elif key == 'minecraft:diorite_slab':
-                        block = 1   # minecraft:diorite
-                        data  = 3
-                    elif key == 'minecraft:granite_slab':
-                        block = 1   # minecraft:granite
-                        data  = 1
-                    elif key == 'minecraft:polished_andesite_slab':
-                        block = 1   # minecraft: polished_andesite
-                        data  = 6
-                    elif key == 'minecraft:polished_diorite_slab':
-                        block = 1   # minecraft: polished_diorite
-                        data  = 4
-                    elif key == 'minecraft:polished_granite_slab':
-                        block = 1   # minecraft: polished_granite
-                        data  = 2
-                    elif key == 'minecraft:red_nether_brick_slab':
-                        block = 215   # minecraft: red_nether_brick
-                        data  = 0
-                    elif key == 'minecraft:smooth_sandstone_slab':
-                        block = 11314   # minecraft: smooth_sandstone
-                        data  = 0
-                    elif key == 'minecraft:cut_sandstone_slab':
-                        block = 24   # minecraft: cut_sandstone
-                        data  = 2
-                    elif key == 'minecraft:smooth_red_sandstone_slab':
-                        block = 11315   # minecraft: smooth_red_sandstone
-                        data  = 0
-                    elif key == 'minecraft:cut_red_sandstone_slab':
-                        block = 179   # minecraft: cut_red_sandstone
-                        data  = 2
-                    elif key == 'minecraft:end_stone_brick_slab':
-                        block = 206   # minecraft:end_stone_bricks
-                        data  = 0
-                    elif key == 'minecraft:mossy_cobblestone_slab':
-                        block = 48   # minecraft:mossy_cobblestone
-                        data  = 0
-                    elif key == 'minecraft:mossy_stone_brick_slab':
-                        block = 98   # minecraft:mossy_stone_bricks
-                        data  = 1
-                    elif key == 'minecraft:smooth_quartz_slab':
-                        block = 155   # minecraft:smooth_quartz
-                        data  = 0
-                    elif key == 'minecraft:smooth_stone_slab':
-                        block = 11313   # minecraft:smooth_stone
-                        data  = 0
-
-                elif key in  prismarine_slabs:
-                    block = 168         # minecraft:prismarine variants
-                    if key == 'minecraft:prismarine_slab':
-                        data = 0
-                    elif key == 'minecraft:prismarine_brick_slab':
-                        data = 1
-                    elif key == 'minecraft:dark_prismarine_slab':
-                        data = 2
-
-        elif key in ['minecraft:ladder', 'minecraft:chest', 'minecraft:ender_chest', 'minecraft:trapped_chest', 'minecraft:furnace']:
+        elif key in ['minecraft:chest', 'minecraft:ender_chest', 'minecraft:trapped_chest']:
             facing = palette_entry['Properties']['facing']
             data = {'north': 2, 'south': 3, 'west': 4, 'east': 5}[facing]
-        elif key in ['minecraft:beehive', 'minecraft:bee_nest']:
-            facing = palette_entry['Properties']['facing']
-            honey_level = int(palette_entry['Properties']['honey_level'])
-            data = {'south': 0, 'west': 1, 'north': 2, 'east': 3}[facing]
-            if honey_level == 5:
-                data = {'south': 4, 'west': 5, 'north': 6, 'east': 7}[facing]
-        elif key.endswith('_button'):
-            facing = palette_entry['Properties']['facing']
-            face   = palette_entry['Properties']['face']
-            if face == 'ceiling':
-                block = 0
-                data = 0
-            elif face == 'wall':
-                data = {'east': 1, 'west': 2, 'south': 3, 'north': 4}[facing]
-            elif face == 'floor':
-                data = {'east': 6, 'west': 6, 'south': 5, 'north': 5}[facing]
-        elif key == 'minecraft:nether_wart':
-            data = int(palette_entry['Properties']['age'])
-        elif key.endswith('shulker_box') or key.endswith('piston') or key in ['minecraft:observer', 'minecraft:dropper', 'minecraft:dispenser']:
+        elif key.endswith('shulker_box'):
             facing = palette_entry['Properties']['facing']
             data = {'down': 0, 'up': 1, 'north': 2, 'south': 3, 'west': 4, 'east': 5}[facing]
-        elif key.endswith('_log') or key.endswith('_wood') or key == 'minecraft:bone_block':
-            axis = palette_entry['Properties']['axis']
-            if axis == 'x':
-                data |= 4
-            elif axis == 'z':
-                data |= 8
-        elif key == 'minecraft:quartz_pillar':
-            axis = palette_entry['Properties']['axis']
-            if axis == 'x':
-                data = 3
-            if axis == 'z':
-                data = 4
-        elif key in ['minecraft:redstone_torch','minecraft:redstone_wall_torch','minecraft:wall_torch']:
-            if key.startswith('minecraft:redstone_') and palette_entry['Properties']['lit'] == 'true':
-                block += 1
-            if key.endswith('wall_torch'):
-                facing = palette_entry['Properties'].get('facing')
-                data = {'east': 1, 'west': 2, 'south': 3, 'north': 4}[facing]
-            else:
-                data = 5
         elif key in ['minecraft:brown_mushroom_block','minecraft:red_mushroom_block']:
             p = palette_entry['Properties']
             if p['up'] == 'true': data = 5
@@ -1089,20 +541,6 @@ class RegionSet(object):
                if p['west'] == 'true': data = 7
                else: data = 8
             elif p['west'] == 'true': data = 4
-        elif key in ['minecraft:carved_pumpkin', 'minecraft:jack_o_lantern'] or key.endswith('glazed_terracotta'):
-            facing = palette_entry['Properties']['facing']
-            data = {'south': 0, 'west': 1, 'north': 2, 'east': 3}[facing]
-        elif key == 'minecraft:vine':
-            p = palette_entry['Properties']
-            if p['south'] == 'true': data |= 1
-            if p['west']  == 'true': data |= 2
-            if p['north'] == 'true': data |= 4
-            if p['east']  == 'true': data |= 8
-        elif key.endswith('anvil'):
-            facing = palette_entry['Properties']['facing']
-            if facing == 'west':  data += 1
-            if facing == 'north': data += 2
-            if facing == 'east':  data += 3
         elif key.endswith('sign'):
             if key.endswith('wall_sign'):
                 facing = palette_entry['Properties']['facing']
@@ -1119,45 +557,13 @@ class RegionSet(object):
             if p['west']  == 'true': data |= 2
             if p['south'] == 'true': data |= 4
             if p['east']  == 'true': data |= 8
-        elif key.endswith('_stairs'):
-            facing = palette_entry['Properties']['facing']
-            if   facing == 'south': data = 2
-            elif facing == 'east':  data = 0
-            elif facing == 'north': data = 3
-            elif facing == 'west':  data = 1
-            if palette_entry['Properties']['half'] == 'top':
-                data |= 0x4
-        elif key.endswith('_door'):
-            p = palette_entry['Properties']
-            if p['hinge'] == 'left': data |= 0x10
-            if p['open'] == 'true': data |= 0x04
-            if p['half'] == 'upper': data |= 0x08
-            data |= {
-                'north': 0x03,
-                'west':  0x02,
-                'south': 0x01,
-                'east':  0x00,
-               }[p['facing']]
-        elif key.endswith('_trapdoor'):
-            p = palette_entry['Properties']
-            data = {'south': 1, 'north': 0, 'east': 3, 'west': 2}[p['facing']]
-            if p['open'] == 'true': data |= 0x04
-            if p['half'] == 'top': data |= 0x08
-        elif key in ['minecraft:beetroots', 'minecraft:melon_stem', 'minecraft:wheat',
-                     'minecraft:pumpkin_stem', 'minecraft:potatoes', 'minecraft:carrots']:
-            data = palette_entry['Properties']['age']
-        elif key == 'minecraft:lantern':
-            if palette_entry['Properties']['hanging'] == 'true':
-                data = 1
-            else:
-                data = 0
         elif key == "minecraft:composter":
             data = palette_entry['Properties']['level']
 
-        # To ensure the auto-generated textures is used (while testing at least)
-        if _auto_blockid is not None:
-            block = _auto_blockid
-            data = _auto_data
+        # # To ensure the auto-generated textures is used (while testing at least)
+        # if _auto_blockid is not None:
+        #     block = _auto_blockid
+        #     data = _auto_data
 
         return (block, data)
 
@@ -1248,7 +654,7 @@ class RegionSet(object):
 
         return result
 
-    def _get_blockdata_v113(self, section, unrecognized_block_types):
+    def _get_blockdata_v113(self, section, textures, unrecognized_block_types):
         # Translate each entry in the palette to a 1.2-era (block, data) int pair.
         num_palette_entries = len(section['Palette'])
         translated_blocks = numpy.zeros((num_palette_entries,), dtype=numpy.uint16) # block IDs
@@ -1256,7 +662,7 @@ class RegionSet(object):
         for i in range(num_palette_entries):
             key = section['Palette'][i]
             try:
-                translated_blocks[i], translated_data[i] = self._get_block(key)
+                translated_blocks[i], translated_data[i] = self._get_block(key, textures)
             except KeyError:
                 pass    # We already have initialised arrays with 0 (= air)
 
@@ -1273,7 +679,10 @@ class RegionSet(object):
 
         return (blocks, data)
 
-    def _get_blockdata_v112(self, section):
+    def _get_blockdata_v112(self, textures, section):
+        # TODO: Either drop support for v112 or add a mapping from old IDs to the new block names
+        #  so _get_block can be used
+        raise NotImplementedError
         # Turn the Data array into a 16x16x16 matrix, same as SkyLight
         data = numpy.frombuffer(section['Data'], dtype=numpy.uint8)
         data = data.reshape((16,16,8))
@@ -1304,7 +713,7 @@ class RegionSet(object):
         return (blocks, data_expanded)
 
     #@log_other_exceptions
-    def get_chunk(self, x, z):
+    def get_chunk(self, x, z, textures):
         """Returns a dictionary object representing the "Level" NBT Compound
         structure for a chunk given its x, z coordinates. The coordinates given
         are chunk coordinates. Raises ChunkDoesntExist exception if the given
@@ -1437,9 +846,9 @@ class RegionSet(object):
                 section['BlockLight'] = blocklight_expanded
 
                 if 'Palette' in section:
-                    (blocks, data) = self._get_blockdata_v113(section, unrecognized_block_types)
+                    (blocks, data) = self._get_blockdata_v113(section, textures, unrecognized_block_types)
                 elif 'Data' in section:
-                    (blocks, data) = self._get_blockdata_v112(section)
+                    (blocks, data) = self._get_blockdata_v112(section, textures)
                 else:   # Special case introduced with 1.14
                     blocks = numpy.zeros((16,16,16), dtype=numpy.uint16)
                     data = numpy.zeros((16,16,16), dtype=numpy.uint8)
@@ -1570,8 +979,8 @@ class RegionSetWrapper(object):
         return self._r.get_type()
     def get_biome_data(self, x, z):
         return self._r.get_biome_data(x,z)
-    def get_chunk(self, x, z):
-        return self._r.get_chunk(x,z)
+    def get_chunk(self, x, z, textures):
+        return self._r.get_chunk(x,z, textures)
     def iterate_chunks(self):
         return self._r.iterate_chunks()
     def iterate_newer_chunks(self,filemtime):
@@ -1629,9 +1038,9 @@ class RotatedRegionSet(RegionSetWrapper):
     def __setstate__(self, args):
         self.__init__(args[0], args[1])
 
-    def get_chunk(self, x, z):
+    def get_chunk(self, x, z, textures):
         x,z = self.unrotate(x,z)
-        chunk_data = dict(super(RotatedRegionSet, self).get_chunk(x,z))
+        chunk_data = dict(super(RotatedRegionSet, self).get_chunk(x,z, textures))
         newsections = []
         for section in chunk_data['Sections']:
             section = dict(section)
@@ -1680,12 +1089,12 @@ class CroppedRegionSet(RegionSetWrapper):
         self.zmin = zmin//16
         self.zmax = zmax//16
 
-    def get_chunk(self,x,z):
+    def get_chunk(self,x,z, textures):
         if (
                 self.xmin <= x <= self.xmax and
                 self.zmin <= z <= self.zmax
                 ):
-            return super(CroppedRegionSet, self).get_chunk(x,z)
+            return super(CroppedRegionSet, self).get_chunk(x,z, textures)
         else:
             raise ChunkDoesntExist("This chunk is out of the requested bounds")
 
@@ -1744,7 +1153,7 @@ class CachedRegionSet(RegionSetWrapper):
 
         self.key = s
 
-    def get_chunk(self, x, z):
+    def get_chunk(self, x, z, textures):
         key = (self.key, x, z)
         for i, cache in enumerate(self.caches):
             try:
@@ -1756,7 +1165,7 @@ class CachedRegionSet(RegionSetWrapper):
             except KeyError:
                 pass
         else:
-            retval = super(CachedRegionSet, self).get_chunk(x,z)
+            retval = super(CachedRegionSet, self).get_chunk(x,z, textures)
 
         # Now add retval to all the caches that didn't have it, all the caches
         # up to and including index i

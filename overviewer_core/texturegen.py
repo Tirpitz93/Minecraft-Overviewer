@@ -1,496 +1,545 @@
+import ctypes
+import math
 import os
-import json
+import typing
 from collections import defaultdict
-from functools import lru_cache
+from contextlib import contextmanager
+from typing import List, Tuple
 
+import moderngl as mgl
+import numpy as np
+from math import sin, cos, tan, asin, pi
+
+from overviewer_core.util import get_program_path
 from PIL import Image
 import logging
 
 logger = logging.getLogger(__name__)
+from overviewer_core.asset_loader import AssetLoader
+
 START_BLOCK_ID = 20000
-BLOCK_LIST = [
-    "dirt",
-    "cyan_stained_glass",
-    "gray_concrete_powder",
-    "red_terracotta",
-    "quartz_block",
-    "beehive",
-    "birch_leaves",
-    "gray_concrete",
-    "brown_glazed_terracotta",
-    "magma_block",
-    "hay_block",
-    "oak_log",
-    "end_stone_bricks",
-    "iron_ore",
-    "emerald_block",
-    "light_blue_concrete_powder",
-    "black_concrete_powder",
-    "jigsaw",
-    "dispenser",
-    "green_terracotta",
-    "dead_brain_coral_block",
-    "red_concrete",
-    "mossy_cobblestone",
-    "barrel",
-    "repeating_command_block",
-    "stripped_jungle_log",
-    "magenta_concrete",
-    "gray_wool",
-    "diamond_ore",
-    "orange_stained_glass",
-    "white_wool",
-    "blue_ice",
-    "terracotta",
-    "redstone_lamp",
-    "dark_oak_planks",
-    "wither_skeleton_wall_skull",
-    "polished_andesite",
-    "ice",
-    "purple_glazed_terracotta",
-    "jungle_log",
-    "prismarine",
-    "light_gray_concrete",
-    "red_sandstone",
-    "orange_concrete_powder",
-    "coarse_dirt",
-    "gold_block",
-    "light_blue_terracotta",
-    "wet_sponge",
-    "white_glazed_terracotta",
-    "lime_terracotta",
-    "white_concrete",
-    "green_wool",
-    "birch_planks",
-    "purpur_block",
-    "cracked_stone_bricks",
-    "lapis_block",
-    "iron_block",
-    "magenta_concrete_powder",
-    "black_stained_glass",
-    "chiseled_red_sandstone",
-    "spruce_planks",
-    "coal_ore",
-    "red_nether_bricks",
-    "crafting_table",
-    "stone_bricks",
-    "black_concrete",
-    "stripped_jungle_wood",
-    "smoker",
-    "pink_wool",
-    "diamond_block",
-    "black_glazed_terracotta",
-    "chiseled_sandstone",
-    "dark_oak_wood",
-    "mycelium",
-    "gray_glazed_terracotta",
-    "purpur_pillar",
-    "lime_wool",
-    "cyan_concrete_powder",
-    "infested_cracked_stone_bricks",
-    "stripped_spruce_log",
-    "yellow_wool",
-    "dead_bubble_coral_block",
-    "oak_planks",
-    "white_concrete_powder",
-    "dark_oak_leaves",
-    "emerald_ore",
-    "jack_o_lantern",
-    "pink_terracotta",
-    "podzol",
-    "nether_quartz_ore",
-    "andesite",
-    "end_stone",
-    "chiseled_stone_bricks",
-    "sponge",
-    "stripped_acacia_wood",
-    "furnace",
-    "brown_concrete",
-    "cut_sandstone",
-    "red_sand",
-    "light_blue_wool",
-    "cyan_concrete",
-    "infested_mossy_stone_bricks",
-    "light_blue_stained_glass",
-    "cyan_glazed_terracotta",
-    "acacia_planks",
-    "blast_furnace",
-    "netherrack",
-    "nether_bricks",
-    "piston",
-    "infested_stone_bricks",
-    "fire_coral_block",
-    "skeleton_wall_skull",
-    "snow_block",
-    "stripped_oak_wood",
-    "lime_concrete_powder",
-    "light_gray_wool",
-    "gray_stained_glass",
-    "lime_concrete",
-    "quartz_pillar",
-    "dead_tube_coral_block",
-    "acacia_leaves",
-    "cartography_table",
-    "red_glazed_terracotta",
-    "dropper",
-    "birch_log",
-    "red_stained_glass",
-    "diorite",
-    "smithing_table",
-    "glowstone",
-    "melon",
-    "wither_skeleton_skull",
-    "yellow_terracotta",
-    "light_gray_stained_glass",
-    "prismarine_bricks",
-    "cyan_wool",
-    "jukebox",
-    "white_terracotta",
-    "mossy_stone_bricks",
-    "green_concrete",
-    "orange_concrete",
-    "pink_concrete",
-    "blue_concrete",
-    "brown_concrete_powder",
-    "white_stained_glass",
-    "sand",
-    "stripped_dark_oak_wood",
-    "yellow_stained_glass",
-    "cobblestone",
-    "chain_command_block",
-    "lapis_ore",
-    "acacia_log",
-    "spruce_wood",
-    "spruce_leaves",
-    "smooth_stone",
-    "oak_wood",
-    "oak_leaves",
-    "purple_concrete_powder",
-    "gray_terracotta",
-    "yellow_concrete_powder",
-    "note_block",
-    "magenta_stained_glass",
-    "smooth_quartz",
-    "light_gray_glazed_terracotta",
-    "magenta_glazed_terracotta",
-    "infested_cobblestone",
-    "clay",
-    "horn_coral_block",
-    "glass",
-    "stripped_spruce_wood",
-    "lime_glazed_terracotta",
-    "purple_wool",
-    "smooth_red_sandstone",
-    "light_blue_concrete",
-    "obsidian",
-    "brown_wool",
-    "blue_stained_glass",
-    "light_blue_glazed_terracotta",
-    "red_wool",
-    "jungle_planks",
-    "purple_terracotta",
-    "gravel",
-    "blue_concrete_powder",
-    "light_gray_terracotta",
-    "cut_red_sandstone",
-    "dark_prismarine",
-    "black_terracotta",
-    "loom",
-    "yellow_concrete",
-    "light_gray_concrete_powder",
-    "soul_sand",
-    "pink_concrete_powder",
-    "command_block",
-    "sea_lantern",
-    "spruce_log",
-    "skeleton_skull",
-    "bubble_coral_block",
-    "lime_stained_glass",
-    "purple_stained_glass",
-    "jungle_leaves",
-    "sandstone",
-    "fletching_table",
-    "green_stained_glass",
-    "polished_granite",
-    "dead_horn_coral_block",
-    "stripped_birch_wood",
-    "bee_nest",
-    "brown_stained_glass",
-    "yellow_glazed_terracotta",
-    "cyan_terracotta",
-    "green_concrete_powder",
-    "pink_glazed_terracotta",
-    "black_wool",
-    "purple_concrete",
-    "bone_block",
-    "blue_terracotta",
-    "stripped_dark_oak_log",
-    "green_glazed_terracotta",
-    "redstone_ore",
-    "blue_wool",
-    "dark_oak_log",
-    "orange_terracotta",
-    "packed_ice",
-    "chiseled_quartz_block",
-    "orange_glazed_terracotta",
-    "bricks",
-    "honeycomb_block",
-    "structure_block",
-    "sticky_piston",
-    "acacia_wood",
-    "bookshelf",
-    "pumpkin",
-    "stripped_oak_log",
-    "stripped_acacia_log",
-    "blue_glazed_terracotta",
-    "frosted_ice",
-    "redstone_block",
-    "orange_wool",
-    "brain_coral_block",
-    "gold_ore",
-    "nether_wart_block",
-    "jungle_wood",
-    "coal_block",
-    "magenta_terracotta",
-    "smooth_sandstone",
-    "tube_coral_block",
-    "stripped_birch_log",
-    "polished_diorite",
-    "magenta_wool",
-    "spawner",
-    "dead_fire_coral_block",
-    "pink_stained_glass",
-    "carved_pumpkin",
-    "red_concrete_powder",
-    "granite",
-    "birch_wood",
-    "brown_terracotta",
-    "infested_chiseled_stone_bricks",
-    "tnt",
-]
+
 
 ################################################################
-# Constants and helper methods for the BlockRenderer
-# Placed here in order to not need self.
+# Simple function for loading .obj files
 ################################################################
-N = "north"
-E = "east"
-S = "south"
-W = "west"
-U = "up"
-D = "down"
 
 
-def rot(image, degree):
-    if image is None:
-        return None
-    return image.rotate(degree)
+class NoElementDataInDefinition(Exception):
+    pass
 
 
-def flip(image, arg1):
-    if image is not None:
-        return image.transpose(arg1)
-    else:
-        return None
+class NoContextCreated(Exception):
+    def __init__(self, exceptions):
+        self.exceptions = exceptions
 
 
 ################################################################
 # Main Code for Block Rendering
 ################################################################
-class BlockRenderer(object):
-    BLOCKSTATES_DIR = "assets/minecraft/blockstates"
-    MODELS_DIR = "assets/minecraft/models"
-    TEXTURES_DIR = "assets/minecraft/textures"
-    data_map = defaultdict(list)
+class MGlRenderer(object):
+    # DEFAULT_LIGHT_VECTOR = (-0.9, 1, 0.8)
+    DEFAULT_LIGHT_VECTOR = (-.8, 1, .7)
 
-    def __init__(self, textures, *, block_list=BLOCK_LIST, start_block_id=1):
-        self.textures = textures
-        self.start_block_id = start_block_id
-        self.block_list = block_list
+    def __init__(self, vertex_shader: str, fragment_shader: str, projection_matrix: np.array, texture_list: iter,
+                 light_vector=DEFAULT_LIGHT_VECTOR, output_resolution=24, texture_resolution=16):
+        self.output_resolution = output_resolution
+
+        # Read shader source-code
+        with open(os.path.join(get_program_path(), vertex_shader)) as fp:
+            vertex_shader_src = fp.read()
+        with open(os.path.join(get_program_path(), fragment_shader)) as fp:
+            fragment_shader_src = fp.read()
+
+        # Calculate the projection matrix if not given
+        if projection_matrix is None:
+            projection_matrix = self.calculate_projection_matrix()
+
+        # Setup rendering
+        self.ctx, self.fbo, self.cube_model = self.setup_rendering(
+            vertex_shader_src, fragment_shader_src, texture_list, projection_matrix,
+            light_vector, output_resolution, texture_resolution
+        )
+
+    def setup_rendering(self, vertex_shader_src: str, fragment_shader_src: str, texture_list: iter,
+                        projection_matrix: np.array, light_vector: tuple, output_resolution: int,
+                        texture_resolution: int):
+        # Setup for rendering
+        ctx = self._create_context()
+        logger.debug("moderngl context info: %s", str(ctx.info))
+
+        # DEPTH_TEST to calculate which face is visible, CULL_FACE to hide the backside of each face
+        ctx.enable(mgl.DEPTH_TEST | mgl.CULL_FACE | mgl.BLEND)
+        # ctx.blend_func = mgl.SRC_ALPHA, mgl.ONE_MINUS_SRC_ALPHA
+        # Create a framebuffer to render into
+        fbo = ctx.simple_framebuffer((output_resolution, output_resolution), components=4)
+        fbo.use()
+        # Compile the shaders
+        render_program = ctx.program(vertex_shader=vertex_shader_src, fragment_shader=fragment_shader_src)
+
+        # Load cube.obj to get a model to render (ArrayBuffer)
+        cube_vao = self.load_obj(ctx, render_program, "overviewer_core/rendering/cube.obj")
+
+        # Load all textures into a single TextureArray
+        # All textures have to be of size mc_texture_size*mc_texture_size
+        texture_atlas, atlas_size = self.load_textures(ctx, texture_resolution, texture_list)
+        texture_atlas.filter = mgl.NEAREST, mgl.NEAREST
+        texture_atlas.use()
+
+        # Set the "uniform" values the shaders require
+        render_program["Mvp"].write(projection_matrix.astype('f4').tobytes())
+        render_program["dir_light"].write(np.array(light_vector, dtype="f4").tobytes())
+        render_program["atlas_size"].write(ctypes.c_uint32(atlas_size))
+        render_program["tile_size"].write(ctypes.c_float(1 / atlas_size))
+
+        return ctx, fbo, cube_vao
 
     ################################################################
-    # Loading files
-    ################################################################
-    def load_file(self, path:str, name:str, ext:str):
-        if ":" in name:
-            return self.textures.find_file("{0}/{1}{2}".format(path,name.split(":")[1],ext))
-        else:
-            return self.textures.find_file("{0}/{1}{2}".format(path,name,ext))
-
-    def load_json(self, name: str, directory: str) -> dict:
-        with self.load_file(directory, name, ".json") as f:
-            return json.load(f)
-
-    def load_blockstates(self, name: str) -> dict:
-        return self.load_json(name, self.BLOCKSTATES_DIR)
-
-    def load_model(self, name: str) -> dict:
-        return self.load_json(name, self.MODELS_DIR)
-
-    @lru_cache
-    def load_img(self, texture_name):
-        with self.load_file(self.TEXTURES_DIR, texture_name, ".png") as f:
-            return Image.open(f).convert("RGBA")
-
-    ################################################################
-    # Model file parsing
+    # Static helper methods
     ################################################################
     @staticmethod
-    def combine_textures_fields(textures_field: dict, parent_textures_field: dict) -> dict:
-        return {
-            **{
-                key: textures_field.get(value[1:], value) if value[0] == '#' else value
-                for key, value in parent_textures_field.items()
+    def _create_context():
+        # TODO: EGL seems to need some commands first (currently manually executed)
+        #  They probably must only be executed once per shell?
+        #  apt install xvfb libgles2-mesa-dev
+        #  export DISPLAY=:99.0
+        #  Xvfb :99 -screen 0 640x480x24 &
+        configurations = [
+            {
+                "standalone": True,
             },
-            **textures_field
-        }
+            {
+                "standalone": True,
+                "backend": "egl",
+            },
+            {
+                "standalone": True,
+                "backend": "egl",
+                "libgl": "libGL.so.1",
+                "libegl": "libEGL.so.1",
+            },
+        ]
+        exceptions = []
+        for config in configurations:
+            # noinspection PyBroadException
+            try:
+                ctx = mgl.create_context(**config)
+            except Exception as e:
+                exceptions.append(e)
+                logger.debug("Could not create a moderngl context with %s" % str(config))
+            else:
+                logger.debug("Context created with %s" % str(config))
+                return ctx
 
-    def load_and_combine_model(self, name):
-        data = self.load_model(name)
-        if "parent" in data:
-            # Load the JSON from the parent
-            parent_data = self.load_and_combine_model(data["parent"])
-            elements_field = data.get("elements", parent_data.get("elements"))
-            textures_field = self.combine_textures_fields(data.get("textures", {}), parent_data.get("textures", {}))
+        logger.error("Could not create a modernGL context. Below is a list of the thrown exceptions")
+        for e in exceptions:
+            logger.error("\t%s: %s" % (str(type(e)), e))
+        raise NoContextCreated(exceptions)
+
+    @staticmethod
+    def load_obj(ctx, render_program, path):
+        """
+        This method loads a .obj file and creates a model that can be rendered using moderngl.
+
+        Wavefont (.obj) files reference verticies, uvs and normals for each vertex with different indicies.
+        ModernGL does not support different indicies for verticies, uvs and normals.
+
+        In addition to de-referencing the verticies, uvs and normals they are combined into a single VertexBuffer.
+
+        Finally a VertexArray is created, that can be rendered using
+        return_value.render(mode=mgl.TRIANGLES)
+        """
+        # Store all verticies, uvs, normals and faces for later processing
+        raw_verticies = []
+        raw_uvs = []
+        raw_normals = []
+        raw_faces = []
+
+        # Read data from the file and store it into the arrays above
+        with open(os.path.join(get_program_path(), path), "r") as fp:
+            for line in fp.readlines():
+                line = line.strip()
+                if line[0] == '#':
+                    continue
+                args = tuple(line.split(' ')[1:])
+                if line.startswith('v '):
+                    raw_verticies.append(args)
+                elif line.startswith('vt '):
+                    raw_uvs.append(args)
+                elif line.startswith('vn '):
+                    raw_normals.append(args)
+                elif line.startswith('f '):
+                    raw_faces.append(tuple(x.split('/') for x in args))
+                else:
+                    pass
+
+        # Combine all arrays and do the de-referencing
+        data = np.array([
+            value
+            for face in raw_faces
+            for vertex in face
+            for value_list in [  # Each vertex consists of a position, normal and a uv
+                raw_verticies[int(vertex[0]) - 1],
+                raw_normals[int(vertex[2]) - 1],
+                raw_uvs[int(vertex[1]) - 1],
+            ]
+            for value in value_list  # Combine all small arrays into a single large one
+        ], dtype="f4")
+
+        # This array is used to ensure faces always have the same id in later code.
+        # This should only need to be changed if cube.obj changes
+        # The index is the normal-index from cube.obj
+        # The value is the index used later for this face
+        face_mapping = [
+            4,  # Top
+            2,  # South
+            3,  # West
+            5,  # Bottom
+            1,  # East
+            0  # North
+        ]
+
+        print(raw_faces)
+        face_indicies = np.array([
+            face_mapping[int(vertex[2]) - 1]
+            for face in raw_faces
+            for vertex in face
+        ], dtype="u4")
+
+        # By reshaping the array all values can be read more easily
+        # print(data.reshape((data.size // 8, 8)))
+        # print(face_indicies)
+
+        # Create a buffer containing the data
+        cube_vbo = ctx.buffer(data.tobytes())
+        cube_vbo_int = ctx.buffer(face_indicies.tobytes())
+        # Create a VertexArray bound to the buffer and the render_program
+        return ctx.vertex_array(
+            render_program,
+            [
+                (cube_vbo, "3f4 3f4 2f4", "in_vert", "in_normal", "in_texcoord_0"),
+                (cube_vbo_int, "u4", "in_faceid")
+            ]
+        )
+
+    @staticmethod
+    def load_textures(ctx, tile_size, texture_list: iter):
+        # Unfortunatly we can't use a TextureArray. OpenGL 3 only supports the 3rd ize parameter to be
+        # GL_MAX_ARRAY_TEXTURE_LAYERS long, which must be higher than 256 but we have over 600 Textures resulting
+        # in more Textures than layers. On those systems (e.g. ubuntu in virtualbox all textures are black.
+        # Workaround: Use a Texture-atlas instead
+        # Calculate the (minimum) size of the atlas in sub-textures
+        atlas_size = math.ceil(math.sqrt(len(texture_list)))
+        gl_max_texture_size = ctx.info["GL_MAX_TEXTURE_SIZE"]
+        # noinspection PyTypeChecker
+        if type(gl_max_texture_size) not in (int, float):
+            logger.warning("GL_MAX_TEXTURE_SIZE is no integer: %s" % gl_max_texture_size)
+        elif tile_size * atlas_size > gl_max_texture_size:
+            logger.error(
+                "Can't create the TextureAtlas because it would be too large. "
+                "Trying to do it anyway but this will probably result in a wrong Image. %s" % str({
+                    "required_texture_size": tile_size * atlas_size,
+                    "GL_MAX_TEXTURE_SIZE": ctx.info["GL_MAX_TEXTURE_SIZE"]
+                })
+            )
+        texture_atlas = ctx.texture(
+            size=(tile_size * atlas_size, tile_size * atlas_size),
+            components=4,
+            data=MGlRenderer.create_texture_atlas(tile_size, atlas_size, texture_list).tobytes()
+        )
+        return texture_atlas, atlas_size
+
+    @staticmethod
+    def create_texture_atlas(texture_size: int, atlas_size: int, texture_list: list):
+        """
+        This method combines a list of textures into a single image. All textures are resized to texture_size
+
+        :param texture_size: Size of each individual texture
+        :param atlas_size: Size of the resulting Image in subtexture cound
+        :param texture_list: List of textures
+        :return:
+        """
+        img = Image.new("RGBA", (texture_size*atlas_size, texture_size*atlas_size))
+        for i, tex in enumerate(texture_list):
+            x, y = (i % atlas_size) * texture_size, (i // atlas_size) * texture_size
+            img.paste(tex, (x, y, x + texture_size, y + texture_size))
+        return img
+
+    # TODO: Move this code somewhere else to allow easier selection of pre-defined projection_matricies
+    @staticmethod
+    def calculate_projection_matrix():
+        # Orthographic view matrix
+        top = .8165
+        bot = -.8165
+        left = -.7073
+        right = .7073
+        near = -10
+        far = 10
+        projection_matrix = np.array([
+            [2 / (right-left), 0, 0, -(right+left)/(right-left)],
+            [0, 2/(top-bot), 0, -(top+bot)/(top-bot)],
+            [0, 0, -2/(far-near), -(far+near)/(far-near)],
+            [0, 0, 0, 1],
+        ], dtype="f4")
+
+        # Rotation matricies from Wikipedia: https://en.wikipedia.org/wiki/Rotation_matrix
+        # Alpha values from Wikipedia: https://en.wikipedia.org/wiki/Isometric_projection#Mathematics
+        alpha = asin(tan(pi / 6))
+        s = sin(alpha)
+        c = cos(alpha)
+        rot_x = np.array([
+            [1, 0, 0, 0],
+            [0, c, -s, 0],
+            [0, s, c, 0],
+            [0, 0, 0, 1]
+        ])
+
+        alpha = pi / 4
+        s = sin(alpha)
+        c = cos(alpha)
+        rot_y = np.array([
+            [c, 0, s, 0],
+            [0, 1, 0, 0],
+            [-s, 0, c, 0],
+            [0, 0, 0, 1]
+        ])
+
+        transform = np.matmul(rot_x, rot_y)
+        view_matrix = np.linalg.inv(transform)
+
+        # roty*rotx is the normal isometric view, the scale makes it fit into a square after applying the isometric view
+        # The transform matrix must be inverted and combined with the projection_matrix to get the VP matrix
+        return np.matmul(view_matrix, projection_matrix)
+
+    ################################################################
+    # Methods for rendering
+    ################################################################
+    def clear(self):
+        self.ctx.clear()
+
+    @contextmanager
+    def colortint_pass(self):
+        self.cube_model.program["is_colortint_pass"].write(ctypes.c_int32(1))
+        yield
+        self.cube_model.program["is_colortint_pass"].write(ctypes.c_int32(0))
+
+    def render_cube(self, face_texture_ids: List[int], face_uvs: list, *,
+                    pos=(0, 0, 0), model_rot=(0, 0, 0), scale=(1, 1, 1), uvlock=False,
+                    rotation_origin=(0, 0, 0), rotation_axis=(1, 0, 0), rotation_angle=0,
+                    face_rotation=(0, 0, 0, 0, 0, 0), face_tintindex=(0, 0, 0, 0, 0, 0)):
+        """
+        This method renders a cube. The result can be accessed using read_to_img
+
+        :param face_texture_ids: This list contains the texture-IDs for each face (Order: N, E, S, W, Top, Bottom)
+        :param face_uvs: This list contains the UV coordinates for each face. Each entry consists of 4 integers
+                         (Order: N, E, S, W, Top, Bottom)
+        :param pos: Position of the cube in local space
+        :param model_rot: Rotation of the entire model (around (0, 0, 0))
+        :param scale: Scale of the cube
+        :param uvlock: Weather the UVs should be based on the world coordinates instead of face_uvs
+        :param rotation_origin: Origin of the cube rotation
+        :param rotation_axis: Axis around the cube is rotated
+        :param rotation_angle: Angle defining how much the cube is rotated
+        :param face_rotation: List of angles defining how much each face is rotated (Order: N, E, S, W, Top, Bottom)
+        :param is_colortint_pass: Flag how the fragment shader should behave. True means only faces with tintindex are
+                                  used. All other faces will be rendered black.
+        :param face_tintindex: Which faces have a textureindex (Order: N, E, S, W, Top, Bottom)
+        """
+        # Write uniform values and render the vertex_array
+        self.cube_model.program["face_texture_ids"].write(np.array(face_texture_ids, dtype="i4").tobytes())
+        self.cube_model.program["face_uvs"].write(np.array(face_uvs, dtype="f4").tobytes())
+        self.cube_model.program["face_rotation"].write(np.array(face_rotation, dtype="f4").tobytes())
+        self.cube_model.program["model_rot"].write(np.array(model_rot, dtype="f4").tobytes())
+        self.cube_model.program["uvlock"].write(ctypes.c_int32(1 if uvlock else 0))
+        self.cube_model.program["pos"].write(np.array(pos, dtype="f4"))
+        self.cube_model.program["scale"].write(np.array(scale, dtype="f4"))
+        self.cube_model.program["rotation_angle"].write(ctypes.c_float(rotation_angle))
+        self.cube_model.program["rotation_origin"].write(np.array(rotation_origin, dtype="f4").tobytes())
+        self.cube_model.program["rotation_axis"].write(np.array(rotation_axis, dtype="f4").tobytes())
+        self.cube_model.program["face_tintindex"].write(np.array(face_tintindex, dtype="i4").tobytes())
+        self.cube_model.render()
+
+    def read_to_img(self):
+        # Read the data from the framebuffer and return it as a PIL.Image
+        img = Image.frombytes("RGBA", (self.output_resolution, self.output_resolution), self.fbo.read(components=4))
+        return img.transpose(Image.FLIP_TOP_BOTTOM)
+
+
+class BlockRenderer(object):
+    # Storage for finding the data value
+    _data_map = defaultdict(list)
+
+    def __init__(self, textures, *, block_list=None, start_block_id: int=1,
+                 vertex_shader: str="overviewer_core/rendering/default.vert",
+                 fragment_shader: str="overviewer_core/rendering/default.frag",
+                 projection_matrix=None, output_resolution=24):
+        # Not direclty related to rendering
+        # TODO: Change the textures reference to a texturepath
+        self.textures = textures
+        self.assetLoader = AssetLoader(textures.find_file_local_path)
+        self.start_block_id = start_block_id
+        # TODO: Remove block_list
+        if block_list is None:
+            self.block_list = self.assetLoader.walk_assets(self.assetLoader.BLOCKSTATES_DIR, r".json")
         else:
-            elements_field = data.get("elements")
-            textures_field = data.get("textures", {})
+            self.block_list = block_list
 
-        return {
-            "textures": textures_field,
-            "elements": elements_field,
+        # Configure rendering
+        texture_list = self.get_all_textures()
+        self.renderer = MGlRenderer(vertex_shader, fragment_shader, projection_matrix, texture_list,
+                                    output_resolution=output_resolution)
+
+    ################################################################
+    # Finding and indexing textures
+    ################################################################
+    def get_all_textures(self):
+        # TODO: Why does walk_assets sometimes return the file extension?
+        # All textures have to be of size mc_texture_size*mc_texture_size
+        paths = [
+            name.rsplit('.', 1)[0]
+            for name in self.assetLoader.walk_assets(self.assetLoader.TEXTURES_DIR + "/block", "")
+        ]
+        self.texture_indicies = {
+            name: i
+            for i, name in enumerate(paths)
         }
+        return [
+            self.assetLoader.load_img("block/" + name)
+            for name in paths
+        ]
 
-    def get_max_nbt_count(self, name: str) -> int:
-        data = self.load_blockstates(name)
-        return len(data.get("variants", []))
+        # return [
+        #     self.assetLoader.load_img("block/stone"),
+        #     self.assetLoader.load_img("block/melon_top"),
+        #     self.assetLoader.load_img("block/oak_planks"),
+        #     self.assetLoader.load_img("block/dirt"),
+        #     self.assetLoader.load_img("block/melon_top"),
+        #     self.assetLoader.load_img("block/bubble_coral_fan"),
+        #     self.assetLoader.load_img("block/oak_sapling"),
+        # ]
+
+    def get_texture_index(self, name) -> int:
+        # TODO: Implement this function
+        # return 2
+        return self.texture_indicies[name.rsplit('/', 1)[1]]
 
     ################################################################
     # Render methods
     ################################################################
-    def render_single_cube(self, part, textures, rotation_x_axis, rotation_y_axis):
-        """
-        Limitations:
-        - Only full blocks
-        - Rotation is not supported
-        - UV coordinates must be [0, 0, 16, 16] (can be implemented bt isn't yet) \
-        - tintcolor
-        """
-        s = defaultdict(lambda: None)
-        for face_name, definition in part["faces"].items():
-            # uv, texture, cullface, rotation, tintindex
-            # Get the Texture (in case no variable is use
-            texture_name = textures[definition["texture"][1:]]
+    def render_element(self, element, texture_variables: dict, rotation_x_axis, rotation_y_axis, uvlock):
+        _from = element["from"]
+        _to = element["to"]
+        # Calculate stupid default UVs if they are not given
+        uv_default = {
+            "north": (_to[0], 16-_to[1], _from[0], 16-_from[1]),
+            "east": (_from[2], 16-_to[1], _to[2], 16-_from[1]),
+            "south": (_from[0], 16-_to[1], _to[0], 16-_from[1]),
+            "west": (_from[2], 16-_to[1], _to[2], 16-_from[1]),
+            "up": (_from[0], _from[2], _to[0], _to[2]),
+            "down": (_to[0], _from[2], _from[0], _to[2]),
+        }
 
+        # Convert the two cube corners into postion, and scale
+        pos = tuple((t + f) / 32 - .5 for f, t in zip(element["from"], element["to"]))
+        model_rot = (rotation_x_axis * pi / 180, rotation_y_axis * pi / 180)     # Not implemented yet
+        scale = tuple((t - f) / 16 for f, t in zip(element["from"], element["to"]))
+        face_texture_ids = [
+            self.get_texture_index(texture_variables[element["faces"][face_name]["texture"][1:]])
+            if face_name in element["faces"]
+            else -1
+            for face_name in ["north", "east", "south", "west", "up", "down"]
+        ]
+        face_uvs = [
+            value / 16
+            for face_name in ["north", "east", "south", "west", "up", "down"]
+            for value in element["faces"].get(face_name, {}).get("uv", uv_default[face_name])
+        ]
+        face_tintindex = [
+            element["faces"].get(face_name, {}).get("tintindex", -1)
+            for face_name in ["north", "east", "south", "west", "up", "down"]
+        ]
+        face_rotation = [
+            element["faces"][face_name].get("rotation", 0) * pi / 180
+            if face_name in element["faces"]
+            else 0
+            for face_name in ["north", "east", "south", "west", "up", "down"]
+        ]
+        _rotation = element.get("rotation")
+        axis_mapping = {
+            'x': (1, 0, 0),
+            'y': (0, 1, 0),
+            'z': (0, 0, 1),
+        }
+        if _rotation is not None:
+            rotation_kwargs = {
+                "rotation_origin": tuple(x / 16 - 0.5 for x in _rotation["origin"]),
+                "rotation_axis": axis_mapping[_rotation["axis"]],
+                "rotation_angle": _rotation["angle"] * pi / 180,
+            }
+        else:
+            rotation_kwargs = {}
 
-            texture = self.load_img(texture_name)
-
-            if "rotation" in definition:
-                texture = texture.rotate(-definition["rotation"])
-            s[face_name] = texture
-
-        # Test for applying the correct top side for observers
-        # s[U] = flip(s[U], Image.FLIP_TOP_BOTTOM)
-
-        # Fix rotation of the bottom texture (see Assumption)
-        s[D] = rot(s[D], 180)
-
-        # TODO: Optimize by only rotating textures if needed (store rotation and apply it later)
-
-        # Apply Rotation in X axis by swapping and optionally rotating the textures
-        if rotation_x_axis == 90:
-            # Identified using the Observer
-            s[N], s[S], s[U], s[D] = rot(s[U], 180), rot(s[D], 180), rot(s[S], 180), s[N]
-        elif rotation_x_axis == 180:
-            # Identifies using the Barrel Block
-            s[N], s[S], s[U], s[D] = rot(s[S], 180), rot(s[N], 180), rot(s[D], 180), rot(s[U], 180)
-        elif rotation_x_axis == 270:
-            # Identified using the Observer
-            s[N], s[S], s[U], s[D] = s[D], s[U], s[N], rot(s[S], 180)
-        s[E] = rot(s[E], -rotation_x_axis)  # Identified using the Observer
-        s[W] = rot(s[W], rotation_x_axis)  # Identified using the Observer
-
-        # Apply Rotation in Y axis by swapping and optionally rotating the textures
-        if rotation_y_axis == 90:
-            # Identified using the Observer
-            s[N], s[E], s[S], s[W] = s[W], s[N], s[E], s[S]
-        elif rotation_y_axis == 180:
-            # Identified using the Observer
-            s[N], s[E], s[S], s[W] = s[S], s[W], s[N], s[E]
-        elif rotation_y_axis == 270:
-            # Identified using the Observer
-            s[N], s[E], s[S], s[W] = s[E], s[S], s[W], s[N]
-        s[U] = rot(s[U], -rotation_y_axis)  # Identified using the Observer
-        s[D] = rot(s[D], rotation_y_axis)  # Identified using the Observe
-
-        # Rotation and Flipping identified by passing one side to the function
-        # with an easily identifiable texture
-        return self.textures.build_full_block(
-            s.get("up"),
-            s.get("north"),
-            flip(s.get("east"), Image.FLIP_LEFT_RIGHT),
-            s.get("west"),
-            flip(s.get("south"), Image.FLIP_LEFT_RIGHT),
-            flip(s.get("down"), Image.FLIP_LEFT_RIGHT)
+        # Render the cube
+        self.renderer.render_cube(
+            face_texture_ids=face_texture_ids,
+            face_uvs=face_uvs,
+            pos=pos,
+            model_rot=model_rot,
+            scale=scale,
+            uvlock=uvlock,
+            face_rotation=face_rotation,
+            face_tintindex=face_tintindex,
+            **rotation_kwargs
         )
 
-    def render_model(self, data: dict, rotation_x_axis, rotation_y_axis, uvlock):
-        """
-        This method is currently only using existing draw methods. Because of that only full size blocks can be created.
+    def render_model(self, settings: dict) -> bool:
+        model_data = self.assetLoader.load_and_combine_model(settings["model"])
+        has_texturetint = False
+        if "elements" not in model_data or model_data["elements"] is None:
+            raise NoElementDataInDefinition
+        for part in model_data["elements"]:
+            self.render_element(
+                element=part,
+                texture_variables=model_data["textures"],
+                rotation_x_axis=settings.get("x", 0),
+                rotation_y_axis=settings.get("y", 0),
+                uvlock=settings.get("uvlock", False),
+            )
 
-        Assumption:
-        - The bottom texture is pointing in the reverse direction of the top texture
-        Reason: models/blocks/template_glaced_terracotta.json does not rotate the top or bottom faces
-        ==> This Indicates the default rotation
+            print(part["faces"])
+            has_texturetint = has_texturetint or any([
+                "tintindex" in face
+                for face in part["faces"].values()
+            ])
 
-        Limitations:
-        - Only full blocks
-        - Rotation is not supported
-        - UV coordinates must be [0, 0, 16, 16] (can be implemented bt isn't yet)
-        - tintcolor
-        """
-        # Check if there are errors and the block can't be rendered correctly because of limitations listed above
-        if data["elements"] is None or len(data["elements"]) == 0:
-            raise NotImplementedError("Only blocks with 'elements' are supported.")
+        print(has_texturetint)
+        return has_texturetint
 
-        for part in data["elements"]:
-            if part["from"] != [0, 0, 0] or part["to"] != [16, 16, 16]:
-                raise NotImplementedError("Partial Blocks are not supported")
-            if "rotation" in part:
-                raise NotImplementedError("Rotated Elements are not supported")
+    def _render_model_to_img(self, settings: dict):
+        self.renderer.clear()
+        has_texturetint = self.render_model(settings)
+        return has_texturetint, self.renderer.read_to_img()
 
-            for face_name, definition in part["faces"].items():
-                if "uv" in definition and definition["uv"] != [0, 0, 16, 16]:
-                    raise NotImplementedError("Only elements with UV [0, 0, 16, 16] are supported")
+    def render_model_to_img(self, settings: dict) -> tuple:
+        try:
+            has_texturetint, img = self._render_model_to_img(settings)
+            if has_texturetint:
+                logger.debug("\tCreating colortint texture")
+                with self.renderer.colortint_pass():
+                    _, tint_texture = self._render_model_to_img(settings)
+            else:
+                tint_texture = None
+        except NoElementDataInDefinition:
+            logger.info("No Element data found for the model {0}".format(settings.get("model")))
+            return None, None
+        else:
+            return img, tint_texture
 
-        if len(data["elements"]) != 1:
-            raise NotImplementedError("Blocks with multiple parts are not supported because the current drawing "
-                                      "can't identify which parts should be drawn on top.")
-
-        # Render the parts in the order they are in the file.
-        # Reason: Required for correct rendering of e.g. the grass block
-        for part in data["elements"]:
-            img = self.render_single_cube(part, data["textures"], rotation_x_axis, rotation_y_axis)
-            return img
-
-        raise RuntimeError("This code should not be reachable. If support for multiple parts is added, "
-                           "the combined texture is returned here. Until then the checks above should "
-                           "ensure this code is never reached.")
-
-    def render_blockstate_entry(self, data: dict) -> Image:
-        # model, x, y, uvlock, weight
-        return self.render_model(
-            data=self.load_and_combine_model(data["model"]),
-            rotation_x_axis=data.get("x", 0),  # Increments of 90°
-            rotation_y_axis=data.get("y", 0),  # Increments of 90°
-            uvlock=data.get("uvlock", False)
-        ), data.get("weight", 1)
-
-    def render_blockstates(self, data: dict) -> (str, []):
+    def render_blockstates(self, data: dict) -> (str, List[tuple]):
         if "variants" in data:
             for nbt_condition, variant in data["variants"].items():
                 yield (nbt_condition, [
-                    self.render_blockstate_entry(v)
+                    self.render_model_to_img(v) + (v.get("weight", 1), )
                     for v in (variant if type(variant) == list else (variant,))
                 ])
         else:
@@ -499,23 +548,25 @@ class BlockRenderer(object):
     ################################################################
     # NBT to Data conversion
     ################################################################
-    @staticmethod
-    def store_nbt_as_int(name, nbt_condition, blockid, data_value):
-        compare_set = {x.split('=')[0] for x in nbt_condition.split(',') if x != ""}
-        BlockRenderer.data_map["minecraft:%s" % name].append((compare_set, (blockid, data_value)))
+    def store_nbt_as_int(self, name, nbt_condition, blockid, data_value):
+        compare_dict = {x.split("=")[0]: x.split("=")[1] for x in nbt_condition.split(',') if x != ""}
+        self._data_map["minecraft:%s" % name].append((compare_dict, (blockid, data_value)))
+
+    def get_data_map(self):
+        return self._data_map
 
     @staticmethod
-    def get_nbt_as_int(key: str, properties: dict):
-        entry = BlockRenderer.data_map.get(key)
+    def get_nbt_as_int(data_map: dict, key: str, properties: dict):
+        entry = data_map.get(key)
         if entry is None:
             return None, None
 
         if properties is None:
             properties = {}
 
-        for stored_set, data_value in entry:
+        for compare_dict, data_value in entry:
             for x in properties.items():
-                if "%s=%s" % x not in stored_set:
+                if compare_dict.get(x[0], x[1]) != x[1]:
                     break
             else:
                 return data_value
@@ -534,7 +585,7 @@ class BlockRenderer(object):
         for block_index, block_name in enumerate(name_list):
             try:
                 for nbt_index, (nbt_condition, variants) in enumerate(
-                        self.render_blockstates(self.load_blockstates(name=block_name))
+                        self.render_blockstates(self.assetLoader.load_blockstates(name=block_name))
                 ):
                     yield block_index, block_name, nbt_index, nbt_condition, variants
             except NotImplementedError as e:
@@ -542,24 +593,18 @@ class BlockRenderer(object):
                     raise e
 
     def iter_all_blocks(self, ignore_unsupported_blocks=True):
-        # TODO: Getting the find_file_local_path from textures is cheating and only works if the jar file is extracted
-        blockstates_dir = self.textures.find_file_local_path + "/assets/minecraft/blockstates"
-        logger.debug("Searching for blockstates in " + blockstates_dir)
-        return self.iter_blocks([
-            fn.split('.', 1)[0]
-            for _, _, files in os.walk(blockstates_dir)
-            for fn in files
-            if fn.split('.', 1)[1] == "json"
-        ], ignore_unsupported_blocks=ignore_unsupported_blocks)
 
-    def get_max_size(self) -> (int, int):
-        blockid_count = len(self.block_list)
-        data_count = max(self.get_max_nbt_count(name) for name in self.block_list)
-        return blockid_count + self.start_block_id, data_count
+        logger.debug("Searching for blockstates in " + self.assetLoader.BLOCKSTATES_DIR)
+
+        return self.iter_blocks(sorted(self.assetLoader.walk_assets(self.assetLoader.BLOCKSTATES_DIR, r".json")))
 
     def iter_for_generate(self):
         for block_index, block_name, nbt_index, nbt_condition, variants in self.iter_all_blocks():
             if len(variants) >= 1:
                 logger.debug("Block found: {0} -> {1}:{2}".format(block_name, block_index, nbt_index))
-                BlockRenderer.store_nbt_as_int(block_name, nbt_condition, block_index + self.start_block_id, nbt_index)
+                self.store_nbt_as_int(block_name, nbt_condition, block_index + self.start_block_id, nbt_index)
+                # TODO: For now only return the first variant because multiple variants is currently not supported
+                #  by overviewer.
+                # TODO: For now only return the rendered Image and not the texturetint Image because the Textures
+                #  class isn't expecting that.
                 yield (block_index + self.start_block_id, nbt_index), variants[0][0]
